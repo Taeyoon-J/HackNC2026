@@ -68,11 +68,12 @@ def _place(db, user_id, market_id, contract, action, order_type, price_cents, qu
                 Order.action == BUY, Order.status.in_(OPEN_STATUSES)))
             if quantity + held + queued > market.total_supply:
                 raise DomainError(f"At most {market.total_supply - held - queued} shares are available after your holdings and pending buys")
+    ceiling = market.share_value_cents - 1
     if order_type == MARKET:
         # Price-protection bound: a market order is a limit at the widest legal price.
-        price_cents = 99 if action == BUY else 1
-    elif price_cents is None or not 1 <= price_cents <= 99:
-        raise DomainError("Price must be between 1¢ and 99¢")
+        price_cents = ceiling if action == BUY else 1
+    elif price_cents is None or not 1 <= price_cents <= ceiling:
+        raise DomainError(f"Price must be between {_money(1)} and {_money(ceiling)}")
 
     side, yes_price = normalize(contract, action, price_cents)
     _reject_self_cross(db, market_id, user_id, side, yes_price)
@@ -98,6 +99,10 @@ def _place(db, user_id, market_id, contract, action, order_type, price_cents, qu
         _release(db, order)
         order.status = "CANCELLED"
     return order, trades
+
+
+def _money(cents: int) -> str:
+    return f"{cents}¢" if cents < 100 else f"${cents / 100:,.2f}"
 
 
 def _reject_self_cross(db, market_id, user_id, side, yes_price):

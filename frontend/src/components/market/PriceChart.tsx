@@ -1,3 +1,4 @@
+import { price as fmtPrice } from "../../lib/format";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { HistoryPoint } from "../../api/types";
 
@@ -6,7 +7,7 @@ const MIN_SPAN = 6 * 3600;
 const MAX_SPAN = 730 * DAY;
 const clamp = (v: number, low: number, high: number) => Math.max(low, Math.min(high, v));
 
-export function PriceChart({ points }: { points: HistoryPoint[] }) {
+export function PriceChart({ points, max = 100 }: { points: HistoryPoint[]; /** share value in cents */ max?: number }) {
   const now = Math.floor(Date.now() / 1000);
   const [span, setSpan] = useState(7 * DAY);
   const [end, setEnd] = useState(now);
@@ -38,7 +39,7 @@ export function PriceChart({ points }: { points: HistoryPoint[] }) {
     return [...buckets.entries()].map(([time, row]) => ({ time: Math.max(start, time), ...row }));
   }, [points, start, boundedEnd, step]);
   const x = (time: number) => 45 + (time - start) / span * 610;
-  const y = (price: number) => 210 - price * 1.8;
+  const y = (price: number) => 210 - (price / max) * 180;
   const maxVolume = Math.max(1, ...rows.map((r) => r.quantity));
   const format = (t: number) => new Date(t * 1000).toLocaleDateString("en-US", step === "month" ? { month: "short", year: "2-digit" } : { month: "short", day: "numeric", ...(step === "hour" ? { hour: "numeric" } : {}) });
   return <div className="space-y-2">
@@ -52,10 +53,10 @@ export function PriceChart({ points }: { points: HistoryPoint[] }) {
       onPointerMove={(e) => { if (dragging.current) setEnd(clamp(dragging.current.end - (e.clientX - dragging.current.x) / Math.max(1, e.currentTarget.clientWidth) * span, Math.min(oldest + span, now), now)); }}
       onPointerUp={() => { dragging.current = null; }} onPointerCancel={() => { dragging.current = null; }}>
       <svg viewBox="0 0 700 280" className="w-full" role="img" aria-label={`YES price chart with ${step} aggregation; future dates are blocked`}>
-        {[0, 25, 50, 75, 100].map((price) => <g key={price}><line x1={45} x2={655} y1={y(price)} y2={y(price)} stroke="#e8e1d6" /><text x={5} y={y(price) + 4} fill="#6b7280" fontSize={11}>{price}¢</text></g>)}
+        {[0, 0.25, 0.5, 0.75, 1].map((f) => <g key={f}><line x1={45} x2={655} y1={y(f * max)} y2={y(f * max)} stroke="#e8e1d6" /><text x={5} y={y(f * max) + 4} fill="#6b7280" fontSize={11}>{max > 100 ? `$${Math.round(f * max / 100)}` : fmtPrice(f * max)}</text></g>)}
         {rows.map((r) => <rect key={r.time} x={x(r.time) - 3} y={250 - r.quantity / maxVolume * 30} width={6} height={r.quantity / maxVolume * 30} fill="#b7791f" opacity={0.35} />)}
         <polyline points={rows.map((r) => `${x(r.time)},${y(r.price)}`).join(" ")} fill="none" stroke="#2f6f73" strokeWidth={2.5} />
-        {rows.map((r) => <circle key={`p${r.time}`} cx={x(r.time)} cy={y(r.price)} r={3} fill="#2f6f73"><title>{format(r.time)} · YES {r.price}¢ · {r.quantity} shares traded</title></circle>)}
+        {rows.map((r) => <circle key={`p${r.time}`} cx={x(r.time)} cy={y(r.price)} r={3} fill="#2f6f73"><title>{format(r.time)} · YES {fmtPrice(r.price)} · {r.quantity} shares traded</title></circle>)}
         {Array.from({ length: 6 }, (_, i) => <text key={i} x={45 + i * 122} y={272} textAnchor="middle" fontSize={10} fill="#6b7280">{format(start + span * i / 5)}</text>)}
         {rows.length === 0 && <text x={350} y={120} textAnchor="middle" fontSize={14} fill="#6b7280">No trades in this time window</text>}
       </svg>

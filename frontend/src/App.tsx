@@ -2,6 +2,7 @@ import { useState, type ReactNode } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { GlassBackdrop } from "./components/layout/GlassBackdrop";
 import { Header } from "./components/layout/Header";
+import { price } from "./lib/format";
 import { useMarketSocket, type SocketEvent } from "./hooks/useMarketSocket";
 import { AdminPricing } from "./pages/admin/AdminPricing";
 import { AdminStudents } from "./pages/admin/AdminStudents";
@@ -17,7 +18,7 @@ import { PortfolioPage } from "./pages/trader/PortfolioPage";
 import { ROLE_HOME, useSession, type Role } from "./store/user";
 
 const TOAST_TEXT: Record<string, (e: SocketEvent) => string | null> = {
-  TRADE_EXECUTED: (e) => `${e.market_id.split("-")[0]} filled · ${e.data.quantity} @ YES ${e.data.yes_price}¢ (${e.data.trade_type})`,
+  TRADE_EXECUTED: (e) => `${e.market_id.split("-")[0]} filled · ${e.data.quantity} @ YES ${price(e.data.yes_price as number)} (${e.data.trade_type})`,
   SCHOLARSHIP_LOCKED: (e) => `${e.market_id.split("-")[0]} scholarship locked · $${((e.data.promised_cents as number) / 100).toFixed(2)}`,
   MARKET_SETTLED: (e) => `${e.market_id.split("-")[0]} settled · outcome ${e.data.outcome}`,
 };

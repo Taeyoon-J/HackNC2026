@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 import { api } from "../../api/client";
 import type { Order } from "../../api/types";
 import { useAction } from "../../hooks/queries";
-import { timeShort } from "../../lib/format";
+import { timeShort, price } from "../../lib/format";
 
 export function OpenOrdersTable({ orders, showMarket = false }: { orders: Order[]; showMarket?: boolean }) {
   const cancel = useAction(api.cancelOrder);
@@ -36,7 +36,7 @@ export function OpenOrdersTable({ orders, showMarket = false }: { orders: Order[
                   <span className={o.contract === "YES" ? "text-yes" : "text-no"}>{o.contract}</span>{" "}
                   {o.action === "BUY" ? "Buy" : "Sell"}
                 </td>
-                <td className="num px-2 py-2 text-right">{o.price_cents}¢</td>
+                <td className="num px-2 py-2 text-right">{price(o.price_cents)}</td>
                 <td className="num px-2 py-2 text-right">
                   {o.filled}/{o.quantity}
                 </td>

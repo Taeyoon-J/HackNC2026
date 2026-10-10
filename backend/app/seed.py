@@ -93,6 +93,8 @@ def reset_and_seed(*, full_cohort=True) -> None:
             seed_requests(db)
             from .demo_overrides import apply_presets
             apply_presets(db)
+            from .services import scholarship_model
+            scholarship_model.apply(db)
 
 
 def seed(db, now: datetime) -> None:

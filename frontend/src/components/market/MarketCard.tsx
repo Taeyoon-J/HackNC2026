@@ -1,11 +1,11 @@
 import { Link } from "react-router-dom";
 import type { Market } from "../../api/types";
-import { dateShort, usd } from "../../lib/format";
+import { dateShort, usd, chance } from "../../lib/format";
 import { MarketStatusBadge } from "./MarketStatusBadge";
 import { FavoriteButton } from "./FavoriteButton";
 
 export function MarketCard({ market }: { market: Market }) {
-  const p = market.last_price;
+  const p = chance(market);
   const settled = market.status === "SETTLED";
   const letter = market.student.name.replace("Student ", "");
   return (

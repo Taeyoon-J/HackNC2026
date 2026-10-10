@@ -1,5 +1,5 @@
 import type { Contract, Level, OrderBook as Book } from "../../api/types";
-import { qty } from "../../lib/format";
+import { qty, price } from "../../lib/format";
 
 interface Props {
   book: Book | undefined;
@@ -35,7 +35,7 @@ export function OrderBook({ book, view, onPick }: Props) {
         ))}
       </div>
       <div className="num border-y border-line bg-sunken px-4 py-1.5 text-center text-xs text-muted">
-        {spread != null ? `Spread ${spread}¢` : "No quotes"}
+        {spread != null ? `Spread ${price(spread)}` : "No quotes"}
       </div>
       <div>
         {bids.map((l) => (
@@ -56,7 +56,7 @@ function Row({ level, side, maxQty, onPick }: { level: Level; side: "bid" | "ask
       className="relative grid w-full grid-cols-2 px-4 py-1 text-xs hover:bg-sunken"
     >
       <span className={`absolute inset-y-0 right-0 ${bar}`} style={{ width: `${(level.quantity / maxQty) * 100}%` }} />
-      <span className={`num relative text-left font-medium ${color}`}>{level.price}¢</span>
+      <span className={`num relative text-left font-medium ${color}`}>{price(level.price)}</span>
       <span className="num relative text-right text-body">{qty(level.quantity)}</span>
     </button>
   );

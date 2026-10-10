@@ -1,5 +1,5 @@
 import type { Trade, TradeType } from "../../api/types";
-import { timeShort } from "../../lib/format";
+import { timeShort, price } from "../../lib/format";
 
 const TYPE_LABEL: Record<TradeType, { text: string; cls: string }> = {
   MINT: { text: "Mint", cls: "text-brand" },
@@ -29,7 +29,7 @@ export function TradeTape({ trades, showNo = false }: { trades: Trade[]; showNo?
               return (
                 <tr key={t.id} className="border-t border-line">
                   <td className={`num px-4 py-1.5 font-medium ${up ? "text-yes" : "text-no"}`}>
-                    {showNo ? 100 - t.yes_price : t.yes_price}¢
+                    {price(showNo ? 100 - t.yes_price : t.yes_price)}
                   </td>
                   <td className="num px-2 py-1.5 text-right">{t.quantity}</td>
                   <td className={`px-2 py-1.5 ${TYPE_LABEL[t.trade_type].cls}`}>{TYPE_LABEL[t.trade_type].text}</td>

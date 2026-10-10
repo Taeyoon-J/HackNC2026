@@ -67,6 +67,10 @@ class Market(Base):
     total_supply: Mapped[int] = mapped_column(default=0)
     initial_scholarship_cents: Mapped[int] = mapped_column(default=0)
     final_price_cents: Mapped[Optional[int]] = mapped_column(nullable=True)
+    # Value of one YES share if the goal is met; also the price ceiling. Legacy markets: $1.
+    share_value_cents: Mapped[int] = mapped_column(default=100)
+    # Fixed goal probability for the scholarship formula (basis points); None = legacy formula.
+    probability_bp: Mapped[Optional[int]] = mapped_column(nullable=True)
 
 
 class Order(Base):

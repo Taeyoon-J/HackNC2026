@@ -67,7 +67,7 @@ export function AdminVerification() {
           {request.payload.value && <p className="rounded-xl bg-brand-soft p-3 text-sm text-body">{request.payload.previous} → <strong>{request.payload.value}</strong></p>}
           {request.payload.courses && <div className="overflow-x-auto"><table className="w-full text-xs"><thead><tr className="text-left text-muted"><th className="py-2">Course</th><th>Credits</th><th>Grade</th></tr></thead><tbody>{request.payload.courses.map((c) => <tr key={c.code} className="border-t border-line"><td className="py-2">{c.code} · {c.name}</td><td>{c.credits}</td><td>{c.gpa?.toFixed(2) ?? "—"}</td></tr>)}</tbody></table></div>}
           {request.type === "FINAL_GPA" && <p className="rounded-xl bg-gold-soft p-3 text-sm text-gold">Final GPA {request.payload.gpa?.toFixed(2)} for {request.payload.term}.{market && ` Target GPA ≥ ${market.threshold.toFixed(2)}: ${(request.payload.gpa ?? 0) >= market.threshold ? "goal achieved" : "goal missed"}.`} Approval immediately closes trading, cancels pending orders and pays YES shares and the adjusted scholarship.</p>}
-          {request.type === "FINAL_GPA" && market && <ScholarshipSummary market={market} />}
+          {request.type === "FINAL_GPA" && market && <ScholarshipSummary market={market} finalGpa={request.payload.gpa} />}
           <div><h3 className="mb-1 text-sm font-semibold text-ink">Supporting evidence</h3><p className="whitespace-pre-wrap text-sm text-body">{request.evidence || (request.evidence_file ? "" : "No evidence attached.")}</p></div>
           {request.evidence_file && <Evidence file={request.evidence_file} />}
           {request.status === "PENDING" ? <>

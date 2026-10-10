@@ -1,5 +1,5 @@
 import type { Market } from "../../api/types";
-import { dateShort, qty, usd } from "../../lib/format";
+import { dateShort, qty, usd, chance, price } from "../../lib/format";
 import { MarketStatusBadge } from "./MarketStatusBadge";
 
 export function MarketHeader({ market }: { market: Market }) {
@@ -13,14 +13,14 @@ export function MarketHeader({ market }: { market: Market }) {
         </div>
         <h1 className="font-display text-2xl font-semibold text-ink">{market.question}</h1>
         <p className="mt-1 text-sm text-muted">
-          Each correct contract pays $1 · Closes {dateShort(market.deadline)}
+          {market.share_value_cents > 100 ? `Each share is worth ${usd(market.share_value_cents)} if the goal is met` : "Each correct contract pays $1"} · Closes {dateShort(market.deadline)}
         </p>
       </div>
       <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-3 xl:grid-cols-6">
         <Kpi label="Cumulative GPA" value={market.student.cumulative_gpa != null ? market.student.cumulative_gpa.toFixed(2) : "None"} />
         <Kpi label="Goal GPA" value={market.threshold.toFixed(1)} />
-        <Kpi label="Community forecast" value={market.last_price != null ? `${market.last_price}%` : "—"} accent="text-brand" />
-        <Kpi label="24h average" value={market.vwap_24h != null ? `${market.vwap_24h.toFixed(1)}¢` : "—"} />
+        <Kpi label="Community forecast" value={chance(market) != null ? `${chance(market)}%` : "—"} accent="text-brand" />
+        <Kpi label="24h average" value={price(market.vwap_24h)} />
         <Kpi label="Volume" value={qty(market.volume)} />
         <Kpi
           label={market.status === "SETTLED" ? "Scholarship paid" : "Initial scholarship"}

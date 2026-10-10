@@ -39,7 +39,7 @@ def check_all(db: Session) -> list[dict]:
             add(f"{m.id}: collateral is 0 after settlement", coll == 0 and m.collateral_cents == 0, f"collateral={coll}")
         elif m.total_supply:
             add(f"{m.id}: fixed YES supply = {m.total_supply}", yes == m.total_supply and no == 0, f"YES={yes}, NO={no}")
-            add(f"{m.id}: fixed share collateral", coll == m.collateral_cents == m.total_supply * 100,
+            add(f"{m.id}: fixed share collateral", coll == m.collateral_cents == m.total_supply * m.share_value_cents,
                 f"ledger={coll}, field={m.collateral_cents}")
         else:
             add(f"{m.id}: YES supply = NO supply = {m.minted_pairs}", yes == no == m.minted_pairs,

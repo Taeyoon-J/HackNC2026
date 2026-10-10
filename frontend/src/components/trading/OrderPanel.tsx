@@ -2,7 +2,7 @@ import { useState } from "react";
 import { api } from "../../api/client";
 import type { Action, Market, OrderResult, OrderType } from "../../api/types";
 import { useAction, usePortfolio } from "../../hooks/queries";
-import { TRADABLE, usd } from "../../lib/format";
+import { TRADABLE, price as fmtPrice, usd } from "../../lib/format";
 
 interface Props {
   market: Market;
@@ -27,7 +27,13 @@ export function OrderPanel({ market, price, onPriceChange }: Props) {
   const pendingBuys = portfolio?.open_orders.filter((o) => o.market_id === market.id && o.action === "BUY").reduce((s, o) => s + o.remaining, 0) ?? 0;
   const buyCapacity = Math.max(0, market.total_supply - (held?.quantity ?? 0) - pendingBuys);
 
-  const effPrice = orderType === "MARKET" ? (action === "BUY" ? 99 : 1) : price;
+  const shareValue = market.share_value_cents || 100;
+  const ceiling = shareValue - 1;
+  // Legacy $1 shares are entered in cents; scholarship-priced shares in dollars ($1 steps).
+  const dollars = shareValue > 100;
+  const step = dollars ? 100 : 1;
+  const clampPrice = (p: number) => Math.min(ceiling, Math.max(1, Math.round(p)));
+  const effPrice = orderType === "MARKET" ? (action === "BUY" ? ceiling : 1) : price;
   const total = effPrice * quantity;
   const disabledReason = !isTrader
     ? "Only traders can place orders"
@@ -75,18 +81,19 @@ export function OrderPanel({ market, price, onPriceChange }: Props) {
 
       <div className="mt-4 space-y-3">
         {orderType === "LIMIT" && (
-          <Field label={`${contract} limit price (¢)`}>
+          <Field label={`${contract} limit price (${dollars ? "$" : "¢"})`}>
             <div className="flex gap-1">
-              <StepButton onClick={() => onPriceChange(Math.max(1, price - 1))}>−</StepButton>
+              <StepButton onClick={() => onPriceChange(clampPrice(price - step))}>−</StepButton>
               <input
                 type="number"
-                min={1}
-                max={99}
+                min={dollars ? 0.01 : 1}
+                max={dollars ? ceiling / 100 : ceiling}
+                step={dollars ? 0.01 : 1}
                 className="input num text-center"
-                value={price}
-                onChange={(e) => onPriceChange(Math.min(99, Math.max(1, Number(e.target.value) || 1)))}
+                value={dollars ? price / 100 : price}
+                onChange={(e) => onPriceChange(clampPrice((Number(e.target.value) || 0) * (dollars ? 100 : 1)))}
               />
-              <StepButton onClick={() => onPriceChange(Math.min(99, price + 1))}>+</StepButton>
+              <StepButton onClick={() => onPriceChange(clampPrice(price + step))}>+</StepButton>
             </div>
           </Field>
         )}
@@ -106,9 +113,9 @@ export function OrderPanel({ market, price, onPriceChange }: Props) {
         {action === "BUY" ? (
           <>
             <Row label={orderType === "MARKET" ? "Max reserved" : "Est. cost"} value={usd(total)} />
-            <Row label={`Payout if ${contract}`} value={usd(quantity * 100)} />
+            <Row label="Value if goal met" value={usd(quantity * shareValue)} />
             {orderType === "LIMIT" && (
-              <Row label="Profit if correct" value={usd(quantity * 100 - total)} accent="text-yes" />
+              <Row label="Profit if goal met" value={usd(quantity * shareValue - total)} accent="text-yes" />
             )}
             <Row label="Available" value={usd(portfolio?.available_cents)} muted />
           </>
@@ -142,7 +149,7 @@ function OrderResultNote({ result }: { result: OrderResult }) {
     <div className="mt-3 rounded-lg border border-line bg-sunken p-3 text-xs">
       <div className="font-medium text-ink">
         {filled_quantity > 0
-          ? `Filled ${filled_quantity} · avg ${avg_price_cents}¢ · ${usd(result.total_cents)}`
+          ? `Filled ${filled_quantity} · avg ${fmtPrice(avg_price_cents)} · ${usd(result.total_cents)}`
           : "No fills"}
       </div>
       <div className="mt-1 text-muted">

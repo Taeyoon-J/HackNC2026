@@ -39,6 +39,8 @@ def market(db: Session, m: Market, detail: bool = False) -> dict:
         "id": m.id, "question": m.question, "metric": m.metric, "term": m.term,
         "total_supply": m.total_supply, "initial_scholarship_cents": m.initial_scholarship_cents,
         "final_price": m.final_price_cents,
+        "share_value_cents": m.share_value_cents,
+        "probability": m.probability_bp / 10000 if m.probability_bp else None,
         "threshold": m.threshold, "deadline": iso(m.deadline), "status": m.status,
         "outcome": m.outcome, "resolved_value": m.resolved_value,
         "last_price": m.last_price_cents, "volume": m.volume,

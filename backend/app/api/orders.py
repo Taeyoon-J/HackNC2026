@@ -20,7 +20,7 @@ class OrderRequest(BaseModel):
     contract: Literal["YES", "NO"]
     action: Literal["BUY", "SELL"]
     order_type: Literal["LIMIT", "MARKET"] = "LIMIT"
-    price_cents: Optional[int] = Field(default=None, ge=1, le=99)
+    price_cents: Optional[int] = Field(default=None, ge=1)  # upper bound is per market
     quantity: int = Field(gt=0)
 
 

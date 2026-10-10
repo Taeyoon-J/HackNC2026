@@ -132,6 +132,28 @@ market. Log in as Admin, open Verification and inspect Student A's supporting re
 approve it to settle that market. Student A can then see the completed semester and
 scholarship receipt. Student D's request demonstrates the failure payout.
 
+### Scholarship-priced shares (Students A–E)
+
+Students A–E use the scholarship model in `backend/app/services/scholarship_model.py`:
+
+| Input | Meaning |
+|---|---|
+| Scholarship S | Reproducible random amount, $30,000–$50,000 |
+| Stock count | 100 YES shares |
+| Initial price | (S / 100) × probability |
+| Goal GPA, probability | Fixed per student (A 3.8/62%, B 3.5/73%, C 3.9/19%, D 3.6/46%, E 3.7/44%) |
+| Final price | Share price when the final GPA is verified |
+
+- Goal met: student receives **S × ((final GPA − goal GPA) / probability + 1)**.
+- Goal missed: student receives **final price × 100**.
+- Shareholders receive S / 100 per share if the goal is met, $0 otherwise.
+- The formula is shown only on admin screens.
+
+The model is applied by `reset_and_seed`. To convert an existing database in place
+(holders are bought back at their last price), run
+`python -c "from app.db import SessionLocal; from app.services import scholarship_model; scholarship_model.apply(SessionLocal())"`
+from `backend`. Markets that are already settled are left unchanged.
+
 ## Existing database and reset
 
 For an older six-student database, first expand the cohort, then upgrade the workflow:

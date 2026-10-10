@@ -42,6 +42,10 @@ export interface Scholarship {
 }
 
 export interface Market {
+  /** Value of one YES share if the goal is met (cents); legacy markets: 100. */
+  share_value_cents: number;
+  /** Fixed goal probability used for the scholarship (0–1); null on legacy markets. */
+  probability: number | null;
   id: string;
   total_supply: number;
   initial_scholarship_cents: number;

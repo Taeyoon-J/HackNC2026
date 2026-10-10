@@ -1,5 +1,5 @@
 import type { Market, MarketStatus } from "../../api/types";
-import { dateShort, usd } from "../../lib/format";
+import { dateShort, usd, chance } from "../../lib/format";
 import { MarketStatusBadge } from "../market/MarketStatusBadge";
 
 const STATUS_NOTE: Record<MarketStatus, string> = {
@@ -61,7 +61,7 @@ function ActiveGoal({ market }: { market: Market }) {
         <div>
           <div className="text-xs text-muted">Community forecast</div>
           <div className="num font-display text-2xl font-semibold text-brand">
-            {market.last_price != null ? `${market.last_price}%` : "—"}
+            {chance(market) != null ? `${chance(market)}%` : "—"}
           </div>
           <div className="text-[11px] text-muted">Deadline {dateShort(market.deadline)}</div>
         </div>

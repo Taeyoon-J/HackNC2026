@@ -7,7 +7,8 @@ def ensure_schema():
     Base.metadata.create_all(engine)
     columns = {c["name"] for c in inspect(engine).get_columns("markets")}
     additions = {"total_supply": "INTEGER NOT NULL DEFAULT 0",
-                 "initial_scholarship_cents": "INTEGER NOT NULL DEFAULT 0", "final_price_cents": "INTEGER"}
+                 "initial_scholarship_cents": "INTEGER NOT NULL DEFAULT 0", "final_price_cents": "INTEGER",
+                 "share_value_cents": "INTEGER NOT NULL DEFAULT 100", "probability_bp": "INTEGER"}
     with engine.begin() as conn:
         for name, definition in additions.items():
             if name not in columns:

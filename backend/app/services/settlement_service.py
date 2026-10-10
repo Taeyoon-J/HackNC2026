@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 
 from ..db import DomainError, utcnow
 from ..models import Market, Position, Scholarship, Settlement, Student
+from . import scholarship_model
 from . import ledger_service as ledger
 from . import market_service, order_service
 from .matching_engine import NO, YES
@@ -45,7 +46,7 @@ def settle(db: Session, market: Market, now=None, *, commit=True) -> dict:
     for pos in positions:
         if pos.reserved_qty:
             raise AssertionError("open sell reservations remain after close")
-        payout = pos.quantity * 100 if pos.contract == market.outcome else 0
+        payout = pos.quantity * market.share_value_cents if pos.contract == market.outcome else 0
         if payout:
             ledger.post(db, [(ledger.collateral_account(market.id), -payout),
                              (ledger.user_account(pos.user_id), payout)], "SETTLEMENT", now=now)
@@ -63,8 +64,11 @@ def settle(db: Session, market: Market, now=None, *, commit=True) -> dict:
                              (ledger.TREASURY, market.collateral_cents)], "YES_COLLATERAL_RELEASE", now=now)
             market.collateral_cents = 0
         scholarship = db.scalar(select(Scholarship).where(Scholarship.market_id == market.id))
-        sign = 1 if market.outcome == YES else -1
-        amount = market.initial_scholarship_cents + sign * market.final_price_cents * 100
+        if market.probability_bp:
+            amount = scholarship_model.payout_cents(market, market.resolved_value)
+        else:
+            sign = 1 if market.outcome == YES else -1
+            amount = market.initial_scholarship_cents + sign * market.final_price_cents * 100
         reserve = ledger.scholarship_account(market.id)
         balance = ledger.balance(db, reserve)
         if balance < amount:
@@ -75,7 +79,7 @@ def settle(db: Session, market: Market, now=None, *, commit=True) -> dict:
             entries.append((ledger.TREASURY, balance - amount))
         ledger.post(db, entries, "SCHOLARSHIP_PAYOUT", now=now)
         scholarship.promised_cents, scholarship.status, scholarship.paid_at = amount, "PAID", now
-        scholarship.locked_probability_bp = market.final_price_cents * 100
+        scholarship.locked_probability_bp = market.probability_bp or market.final_price_cents * 100
         if commit:
             db.commit()
         return {"contracts_paid_cents": total_paid, "scholarship_paid_cents": amount, "outcome": market.outcome}

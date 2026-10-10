@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import type { AdminStudentDetail } from "../../api/types";
-import { usd, dateShort } from "../../lib/format";
+import { usd, dateShort, chance } from "../../lib/format";
 import { MarketStatusBadge } from "../market/MarketStatusBadge";
 
 export function StudentMarkets({ student }: { student: AdminStudentDetail }) {
@@ -13,7 +13,7 @@ export function StudentMarkets({ student }: { student: AdminStudentDetail }) {
         <div className="flex flex-wrap items-center justify-between gap-2"><Link className="font-semibold text-brand hover:underline" to={`/admin?market=${encodeURIComponent(market.id)}`}>{market.term}</Link><MarketStatusBadge status={market.status} /></div>
         <div className="mt-3 grid gap-3 sm:grid-cols-3">
           <Metric label="Goal GPA" value={market.threshold.toFixed(2)} />
-          <Metric label="Achievement probability" value={market.last_price != null ? `${market.last_price}%` : "Not priced yet"} />
+          <Metric label="Achievement probability" value={chance(market) != null ? `${chance(market)}%` : "Not priced yet"} />
           <Metric label="Initial scholarship" value={market.initial_scholarship_cents ? usd(market.initial_scholarship_cents) : "Not assigned yet"} />
           <Metric label="Shares issued" value={String(market.total_supply)} />
           <Metric label="Trading volume" value={String(market.volume)} />
