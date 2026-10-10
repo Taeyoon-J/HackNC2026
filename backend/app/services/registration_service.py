@@ -45,7 +45,7 @@ def register(db, req):
     token = secrets.token_hex(8)
     sid, uid = f"STU_{token}", f"STUDENT_{token}"
     try:
-        db.add(User(id=uid, role="STUDENT", display_name=f"Student {db.scalar(select(func.count(Student.id))) + 1}", status="PENDING_VERIFICATION"))
+        db.add(User(id=uid, role="STUDENT", display_name=req.username, status="PENDING_VERIFICATION"))
         db.flush()
         db.add(Wallet(user_id=uid))
         db.add(AccountCredentials(user_id=uid, username=username, password_hash=password_hash(req.password)))

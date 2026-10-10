@@ -158,7 +158,7 @@ function StudentPicker({ onPick }: { onPick: (id: string) => void }) {
         ) : (
           <form className="space-y-3" onSubmit={(e) => { e.preventDefault(); void create(); }}>
             <div className="text-sm font-semibold text-ink">Create your profile</div>
-            <p className="text-xs text-muted">You will be listed anonymously (e.g. "Student G"). Your name is never shown.</p>
+            <p className="text-xs text-muted">Your username is your public student name. Choose the name you want traders and admins to see.</p>
             <ProfileFields value={profile} onChange={setProfile} />
             <label className="block text-xs text-muted">Username<input required minLength={3} maxLength={80} pattern="[A-Za-z0-9_.-]+" autoComplete="username" className="input mt-1" value={username} onChange={(e) => setUsername(e.target.value)} /></label>
             <label className="block text-xs text-muted">Password<input required type="password" minLength={8} maxLength={128} autoComplete="new-password" className="input mt-1" value={password} onChange={(e) => setPassword(e.target.value)} /></label>

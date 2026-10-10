@@ -9,7 +9,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from ..db import DomainError, get_db
-from ..models import AccountCredentials, User
+from ..models import AccountCredentials, Market, Student, User
 from .deps import current_user
 
 router = APIRouter(prefix="/api/account", tags=["account"])
@@ -58,6 +58,12 @@ async def update(req: AccountChange, user: User = Depends(current_user), db: Ses
         credentials = AccountCredentials(user_id=user.id, username=username)
         db.add(credentials)
     credentials.username = username
+    if user.role == "STUDENT":
+        user.display_name = req.username
+        student = db.scalar(select(Student).where(Student.user_id == user.id))
+        if student:
+            for market in db.scalars(select(Market).where(Market.student_id == student.id)):
+                market.question = f"Will {user.display_name} earn a {market.term} GPA of {market.threshold} or higher?"
     if req.password:
         credentials.password_hash = password_hash(req.password)
     try:

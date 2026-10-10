@@ -75,6 +75,9 @@ and a registration request in Admin Verification. Login and student APIs return 
 until an admin approves the request. Approval atomically verifies the submitted records, activates
 the account and opens a 100-share YES market with a random GPA target (2.0–4.0) and initial
 probability (20–80%) for the demo. Students cannot choose their own GPA goals.
+The signup username is the student's public display name. Admin Students profiles include
+all submitted records, goal GPA, current achievement probability, scholarship details and
+current trader holders with share counts, purchase cost and current value.
 Public academic records are verified;
 About me and personal statements are self-reported and shared immediately across roles.
 

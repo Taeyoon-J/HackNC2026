@@ -15,3 +15,19 @@ def ensure_schema():
     from .models import Disclosure
     for index in Disclosure.__table__.indexes:
         index.create(engine, checkfirst=True)
+    # Upgrade accounts created by the previous anonymous signup flow.
+    from sqlalchemy import select
+    from .db import SessionLocal
+    from .models import AccountCredentials, Market, Student, User
+    with SessionLocal() as db:
+        rows = db.execute(select(User, AccountCredentials).join(AccountCredentials,
+            AccountCredentials.user_id == User.id).where(User.role == "STUDENT",
+            User.display_name.like("Student %"), AccountCredentials.password_hash != "")).all()
+        for user, credentials in rows:
+            user.display_name = credentials.username
+            student = db.scalar(select(Student).where(Student.user_id == user.id))
+            if student:
+                for market in db.scalars(select(Market).where(Market.student_id == student.id)):
+                    market.question = f"Will {user.display_name} earn a {market.term} GPA of {market.threshold} or higher?"
+        if rows:
+            db.commit()

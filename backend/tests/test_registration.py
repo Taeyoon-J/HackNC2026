@@ -14,6 +14,7 @@ def test_registration_activation_and_admin_goal(client):
     result = client.post("/api/students", json=registration())
     assert result.status_code == 200, result.text
     student = result.json()
+    assert student["name"] == "new.student"
     assert student["status"] == "PENDING_VERIFICATION" and not student["verified"]
     assert "Requires verification" in student["message"]
     credentials = {"username": "new.student", "password": "academic123"}

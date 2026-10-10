@@ -223,6 +223,8 @@ export interface DirectoryPage<T> {
 
 export interface AdminStudentDetail extends AdminStudent {
   disclosures: Disclosure[];
+  market_details: Market[];
+  holders: { market_id: string; user_id: string; name: string; contract: Contract; quantity: number; reserved_qty: number; cost_basis_cents: number }[];
 }
 
 export interface CourseRecord { code: string; name: string; credits: number; gpa?: number }

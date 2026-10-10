@@ -82,7 +82,7 @@ function Row({ s, busy, onView, onVerify, onDelist, onRestore }: {
       <td className="px-5 py-3">
         <div className="flex items-center gap-3">
           <span className="grid h-9 w-9 place-items-center rounded-full bg-brand-soft font-display font-semibold text-brand">
-            {s.name.replace("Student ", "")}
+            {s.name.replace("Student ", "").slice(0, 2).toUpperCase()}
           </span>
           <div>
             <button type="button" className="font-semibold text-brand hover:underline" onClick={onView}>{s.name}</button>
@@ -120,7 +120,7 @@ function Row({ s, busy, onView, onVerify, onDelist, onRestore }: {
         </div>
       </td>
       <td className="px-3 py-3">
-        <span className={`text-xs font-semibold ${delisted ? "text-no" : "text-yes"}`}>{delisted ? "Delisted" : "Listed"}</span>
+        <span className={`text-xs font-semibold ${s.status === "PENDING_VERIFICATION" ? "text-gold" : delisted ? "text-no" : "text-yes"}`}>{s.status === "PENDING_VERIFICATION" ? "Requires verification" : delisted ? "Delisted" : "Listed"}</span>
       </td>
       <td className="px-5 py-3">
         <div className="flex justify-end gap-2">

@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func, select
 
 from ..db import DomainError, get_db
-from ..models import Disclosure, Market, Student, User, VerificationRequest
+from ..models import Disclosure, Market, Position, Student, User, VerificationRequest
 from ..realtime.ws_manager import ALL, manager
 from ..services import (invariants, market_service, scholarship_service, settlement_service,
                         student_service)
@@ -136,7 +136,17 @@ async def list_students(params: DirectoryParams = Depends(), db: Session = Depen
 async def student_detail(student_id: str, db: Session = Depends(get_db)):
     s = _student(db, student_id)
     disclosures = db.scalars(select(Disclosure).where(Disclosure.student_id == s.id).order_by(Disclosure.id)).all()
-    return {**_student_row(db, s), "disclosures": [{"id": d.id, "type": d.type, "title": d.title,
+    markets = db.scalars(select(Market).where(Market.student_id == s.id).order_by(Market.created_at.desc())).all()
+    holdings = db.execute(select(Position, User).join(User, User.id == Position.user_id).where(
+        Position.market_id.in_([m.id for m in markets]), Position.quantity > 0,
+        User.role == "TRADER", ~User.id.startswith("MM_"))).all()
+    history = next((d for d in disclosures if d.type == "GPA_HISTORY"), None)
+    return {**_student_row(db, s), "market_details": [ser.market(db, m, detail=True) for m in markets],
+            "cumulative_gpa": student_service.cumulative_gpa(history.data) if history else None,
+            "holders": [{"market_id": p.market_id, "user_id": u.id, "name": u.display_name,
+                         "contract": p.contract, "quantity": p.quantity, "reserved_qty": p.reserved_qty,
+                         "cost_basis_cents": p.cost_basis_cents} for p, u in holdings],
+            "disclosures": [{"id": d.id, "type": d.type, "title": d.title,
             "data": d.data, "verified_at": ser.iso(d.verified_at)} for d in disclosures]}
 
 
