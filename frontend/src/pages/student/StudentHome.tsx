@@ -89,7 +89,7 @@ export function StudentHome() {
         </div>
 
         <div className="lg:sticky lg:top-24 lg:self-start">
-          <GoalCard markets={me.markets} canPropose={me.status === "ACTIVE"} />
+          <GoalCard markets={me.markets} />
         </div>
       </div>
     </div>

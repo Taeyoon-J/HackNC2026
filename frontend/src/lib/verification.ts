@@ -1,6 +1,7 @@
 import type { Verification, VerificationType } from "../api/types";
 
 export const VERIFICATION_LABELS: Record<VerificationType, string> = {
+  REGISTRATION: "Student account activation",
   UNIVERSITY: "University change",
   MAJOR: "Major change",
   COURSE_LOAD: "Current course load / course grades",
@@ -15,6 +16,7 @@ export const SETTINGS_TYPES: VerificationType[] = ["UNIVERSITY", "MAJOR", "COURS
 
 export function summarize(r: Verification): string {
   const p = r.payload;
+  if (r.type === "REGISTRATION") return `${p.university} · ${p.year} · ${p.major}`;
   if (p.value) return p.value;
   if (r.type === "BIOGRAPHY") return "Profile text edited";
   if (r.type === "ACTIVITY" || r.type === "APPLICATION") return `${p.data?.items?.length ?? 0} entries`;

@@ -68,7 +68,14 @@ Sources are in `backend/app/demo_data.py`.
 There are 20 majors, random course grades from 0 to 4, credit-weighted semester GPAs,
 course breakdowns, Fall 2026 course loads, activities, awards, introductions and personal
 statements. Freshmen have no completed college semesters. All 50 seeded students are
-listed, including Student F. New signups still require verification. Public academic records are verified;
+listed, including Student F. New signups require university, year, major, academic history,
+current course load, a unique username and a password (at least 8 characters).
+Freshmen can explicitly declare no completed semesters. Registration creates an inactive account
+and a registration request in Admin Verification. Login and student APIs return "Requires verification"
+until an admin approves the request. Approval atomically verifies the submitted records, activates
+the account and opens a 100-share YES market with a random GPA target (2.0–4.0) and initial
+probability (20–80%) for the demo. Students cannot choose their own GPA goals.
+Public academic records are verified;
 About me and personal statements are self-reported and shared immediately across roles.
 
 Trader A starts with YES shares in six students: A, B, C, D, G and H, plus two pending

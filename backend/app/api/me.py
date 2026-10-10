@@ -84,8 +84,6 @@ async def upsert_disclosure(dtype: str, req: DisclosureRequest, user: User = Dep
 
 @router.post("/goals")
 async def propose_goal(req: GoalRequest, user: User = Depends(current_user), db: Session = Depends(get_db)):
-    s = student_service.student_for_user(db, user.id)
-    student_service.propose_goal(db, s, req.threshold, req.term)
-    return _profile(db, user)
+    raise DomainError("GPA goals are assigned by an admin during verification", 403)
 
 

@@ -100,7 +100,7 @@ def upsert_disclosure(db: Session, student: Student, dtype: str, data: dict) -> 
 
 def term_deadline(term: str) -> datetime:
     season, _, year = term.partition(" ")
-    if season not in ("Fall", "Spring") or not year.isdigit():
+    if season not in ("Fall", "Spring") or not year.isdigit() or not 1 <= int(year) <= 9999:
         raise DomainError("Term must look like 'Fall 2026' or 'Spring 2027'")
     return datetime(int(year), 12, 20, 23, 59) if season == "Fall" else datetime(int(year), 5, 15, 23, 59)
 
@@ -142,6 +142,8 @@ def verify(db: Session, student: Student) -> Student:
 
 def delist(db: Session, student: Student) -> int:
     """Hide the student from traders and cancel resting orders so reservations are released."""
+    if db.get(User, student.user_id).status == "PENDING_VERIFICATION":
+        raise DomainError("Review the registration request before managing this account")
     student.status = "DELISTED"
     cancelled = 0
     for m in db.scalars(select(Market).where(Market.student_id == student.id)).all():
@@ -151,6 +153,8 @@ def delist(db: Session, student: Student) -> int:
 
 
 def restore(db: Session, student: Student) -> Student:
+    if db.get(User, student.user_id).status == "PENDING_VERIFICATION":
+        raise DomainError("Approve the registration request to activate this account")
     student.status = "ACTIVE"
     db.commit()
     return student

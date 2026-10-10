@@ -5,11 +5,12 @@ import { useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client";
 import { Logo } from "../components/layout/Header";
 import { ProfileFields, emptyProfile } from "../components/student/ProfileFields";
+import { SemesterFields, newCourse, type SemesterInput } from "../components/student/RegistrationRecords";
 import { useUsers } from "../hooks/queries";
 import { ROLE_HOME, useSession, type Role } from "../store/user";
 
 const ROLES: { role: Role; title: string; blurb: string; icon: string }[] = [
-  { role: "STUDENT", title: "Student", blurb: "Share your academic record and set a goal to earn a scholarship.", icon: "🎓" },
+  { role: "STUDENT", title: "Student", blurb: "Submit your academic record for an admin-assigned scholarship goal.", icon: "🎓" },
   { role: "TRADER", title: "Trader", blurb: "Browse student goals and share your forecast with virtual credits.", icon: "📈" },
   { role: "ADMIN", title: "Admin", blurb: "Review evidence, verify academic changes and settle GPA goals.", icon: "🛡️" },
 ];
@@ -119,48 +120,68 @@ function AccountPicker({ role, onPick }: { role: Role; onPick: (id: string) => v
 function StudentPicker({ onPick }: { onPick: (id: string) => void }) {
   const [creating, setCreating] = useState(false);
   const [profile, setProfile] = useState(emptyProfile);
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [history, setHistory] = useState<SemesterInput[]>([]);
+  const [noHistory, setNoHistory] = useState(false);
+  const [load, setLoad] = useState<SemesterInput>({ term: "Fall 2026", courses: [newCourse()] });
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("");
   const [error, setError] = useState<string | null>(null);
   const qc = useQueryClient();
 
   const create = async () => {
     setError(null);
+    setBusy(true);
     try {
-      const s = await api.createStudent(profile);
+      if (!profile.university.trim() || !profile.major.trim()) throw new Error("University and major are required.");
+      if (history.length === 0 && !(profile.year === "Freshman" && noHistory)) throw new Error("Enter academic history or declare no completed semesters as a freshman.");
+      const s = await api.createStudent({ ...profile, username, password, academic_history: { terms: history }, current_course_load: load });
       await qc.invalidateQueries({ queryKey: ["users"] });
-      onPick(s.user_id);
+      setMessage(s.message);
+      setCreating(false);
+      setPassword("");
     } catch (e) {
       setError((e as Error).message);
-    }
+    } finally { setBusy(false); }
   };
 
   return (
     <div>
       <AccountPicker role="STUDENT" onPick={onPick} />
       <div className="mt-5 rounded-2xl bg-sunken p-4">
+        {message && <p role="status" className="mb-3 rounded-xl bg-gold-soft p-3 text-sm text-gold">{message}</p>}
         {!creating ? (
           <button type="button" className="text-sm font-semibold text-brand hover:underline" onClick={() => setCreating(true)}>
             + New here? Create a student profile
           </button>
         ) : (
-          <div className="space-y-3">
+          <form className="space-y-3" onSubmit={(e) => { e.preventDefault(); void create(); }}>
             <div className="text-sm font-semibold text-ink">Create your profile</div>
             <p className="text-xs text-muted">You will be listed anonymously (e.g. "Student G"). Your name is never shown.</p>
             <ProfileFields value={profile} onChange={setProfile} />
+            <label className="block text-xs text-muted">Username<input required minLength={3} maxLength={80} pattern="[A-Za-z0-9_.-]+" autoComplete="username" className="input mt-1" value={username} onChange={(e) => setUsername(e.target.value)} /></label>
+            <label className="block text-xs text-muted">Password<input required type="password" minLength={8} maxLength={128} autoComplete="new-password" className="input mt-1" value={password} onChange={(e) => setPassword(e.target.value)} /></label>
+            <h3 className="text-sm font-semibold">Academic history (required)</h3>
+            {profile.year === "Freshman" && history.length === 0 && <label className="flex gap-2 text-xs text-muted"><input type="checkbox" checked={noHistory} onChange={(e) => setNoHistory(e.target.checked)} />I have no completed semesters.</label>}
+            {history.map((term, index) => <div key={index}><SemesterFields graded value={term} onChange={(value) => setHistory(history.map((t, i) => i === index ? value : t))} /><button type="button" className="text-xs text-no" onClick={() => setHistory(history.filter((_, i) => i !== index))}>Remove semester</button></div>)}
+            <button type="button" className="text-xs font-semibold text-brand" disabled={history.length >= 30} onClick={() => { setNoHistory(false); setHistory([...history, { term: "", courses: [newCourse(true)] }]); }}>+ Add completed semester</button>
+            <h3 className="text-sm font-semibold">Current course load (required)</h3>
+            <SemesterFields value={load} onChange={setLoad} />
             <div className="flex gap-2">
               <button
-                type="button"
+                type="submit"
                 className="btn bg-brand text-white hover:bg-brand-strong"
-                disabled={!profile.university || !profile.major}
-                onClick={create}
+                disabled={busy || !profile.university.trim() || !profile.major.trim()}
               >
-                Create & continue
+                {busy ? "Submitting…" : "Create account & request verification"}
               </button>
               <button type="button" className="btn text-muted hover:text-ink" onClick={() => setCreating(false)}>
                 Cancel
               </button>
             </div>
             {error && <p className="text-xs text-no">{error}</p>}
-          </div>
+          </form>
         )}
       </div>
     </div>

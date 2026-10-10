@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func, select
 
 from ..db import DomainError, get_db
-from ..models import Disclosure, Market, Student
+from ..models import Disclosure, Market, Student, User, VerificationRequest
 from ..realtime.ws_manager import ALL, manager
 from ..services import (invariants, market_service, scholarship_service, settlement_service,
                         student_service)
@@ -141,8 +141,18 @@ async def student_detail(student_id: str, db: Session = Depends(get_db)):
 
 
 @router.post("/students/{student_id}/verify")
-async def verify_student(student_id: str, db: Session = Depends(get_db)):
-    s = student_service.verify(db, _student(db, student_id))
+async def verify_student(student_id: str, user: User = Depends(admin_user), db: Session = Depends(get_db)):
+    s = _student(db, student_id)
+    if s.status == "PENDING_VERIFICATION":
+        from ..services import verification_service
+        request = db.scalar(select(VerificationRequest).where(VerificationRequest.student_id == s.id,
+            VerificationRequest.type == "REGISTRATION", VerificationRequest.status == "PENDING"))
+        if request is None:
+            raise DomainError("No pending registration request")
+        verification_service.approve(db, request, s, user)
+        await manager.broadcast("VERIFICATION_UPDATED", ALL, {"id": request.id})
+    else:
+        s = student_service.verify(db, s)
     await manager.broadcast("STUDENT_UPDATED", ALL, {"student_id": s.id})
     return _student_row(db, s)
 

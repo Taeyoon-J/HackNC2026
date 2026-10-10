@@ -2,34 +2,16 @@
 from conftest import M1, as_user, assert_invariants, order
 
 
-def test_signup_profile_goal_and_admin_open(client):
-    r = client.post("/api/students", json={"university": "UNC Charlotte", "year": "Freshman", "major": "History"})
-    me = as_user(client, r.json()["user_id"])
-    assert r.json()["name"] == "Student G"  # A–E seeded, F is the pending newcomer
-
-    assert me("PUT", "/api/me/student", json={"university": "UNC Charlotte", "year": "Sophomore", "major": "History"}).status_code == 400
-    p = me("GET", "/api/me/student").json()
-    assert p["year"] == "Freshman"
-
-    assert me("PUT", "/api/me/student/disclosures/GPA_HISTORY", json={"data": {"terms": []}}).status_code == 403
-    request = me("POST", "/api/me/verifications", json={"type": "COURSE_LOAD", "payload": {"term": "Fall 2026",
-        "courses": [{"code": "MATH 101", "name": "Calculus", "credits": 3}]}, "evidence": "Registrar enrollment record"}).json()
-    # Pending academic changes do not update the current public profile.
-    assert client.get(f"/api/students/{p['id']}").json()["disclosures"] == []
-    as_user(client, "ADMIN")("POST", f"/api/admin/verifications/{request['id']}/approve", json={})
-
-    p = me("POST", "/api/me/goals", json={"threshold": 3.7, "term": "Fall 2026"}).json()
-    market_id = p["markets"][0]["id"]
-    assert p["markets"][0]["status"] == "DRAFT"
-    assert me("POST", "/api/me/goals", json={"threshold": 3.5, "term": "Spring 2027"}).status_code == 400
-    assert market_id not in {m["id"] for m in client.get("/api/markets").json()}
-
+def test_activated_profile_academic_fields_remain_readonly(client):
+    from test_registration import registration
+    student = client.post("/api/students", json=registration()).json()
     admin = as_user(client, "ADMIN")
-    assert admin("POST", f"/api/admin/markets/{market_id}/open").status_code == 400  # not verified yet
-    admin("POST", f"/api/admin/students/{p['id']}/verify")
-    assert admin("POST", f"/api/admin/markets/{market_id}/open").json()["status"] == "TRADING"
-    assert market_id in {m["id"] for m in client.get("/api/markets").json()}
-    assert len(client.get(f"/api/students/{p['id']}").json()["disclosures"]) == 1
+    admin("POST", f"/api/admin/students/{student['id']}/verify")
+    me = as_user(client, student["user_id"])
+    assert me("PUT", "/api/me/student", json={"university": "UNC Chapel Hill", "year": "Junior", "major": "Computer Science"}).status_code == 400
+    assert me("GET", "/api/me/student").json()["year"] == "Sophomore"
+    assert me("PUT", "/api/me/student/disclosures/GPA_HISTORY", json={"data": {"terms": []}}).status_code == 403
+    assert me("POST", "/api/me/goals", json={"threshold": 3.7, "term": "Spring 2027"}).status_code == 403
 
 
 def test_delist_hides_market_and_releases_orders(client):

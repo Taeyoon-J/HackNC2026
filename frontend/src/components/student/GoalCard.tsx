@@ -1,7 +1,4 @@
-import { useState } from "react";
-import { api } from "../../api/client";
 import type { Market, MarketStatus } from "../../api/types";
-import { useAction } from "../../hooks/queries";
 import { dateShort, usd } from "../../lib/format";
 import { MarketStatusBadge } from "../market/MarketStatusBadge";
 
@@ -15,14 +12,12 @@ const STATUS_NOTE: Record<MarketStatus, string> = {
   SETTLED: "This goal is complete.",
 };
 
-const TERMS = ["Fall 2026", "Spring 2027", "Fall 2027"];
-
-export function GoalCard({ markets, canPropose }: { markets: Market[]; canPropose: boolean }) {
+export function GoalCard({ markets }: { markets: Market[] }) {
   const active = markets.find((m) => m.status !== "SETTLED");
   const past = markets.filter((m) => m.status === "SETTLED");
   return (
     <div className="space-y-4">
-      {active ? <ActiveGoal market={active} /> : <ProposeGoal disabled={!canPropose} />}
+      {active ? <ActiveGoal market={active} /> : <div className="card p-5 text-sm text-muted">Your next GPA goal will be assigned by an admin after verification.</div>}
       {past.length > 0 && (
         <div className="card p-5">
           <div className="card-title mb-3">Past goals</div>
@@ -50,7 +45,7 @@ function ActiveGoal({ market }: { market: Market }) {
     <div className="card overflow-hidden">
       <div className="bg-gradient-to-br from-brand-soft to-gold-soft p-5">
         <div className="flex items-center justify-between">
-          <span className="card-title">My goal · {market.term}</span>
+          <span className="card-title">Admin-assigned goal · {market.term}</span>
           {market.status !== "DRAFT" && <MarketStatusBadge status={market.status} />}
         </div>
         <div className="mt-2 font-display text-3xl font-semibold text-ink">GPA ≥ {market.threshold.toFixed(1)}</div>
@@ -71,46 +66,6 @@ function ActiveGoal({ market }: { market: Market }) {
           <div className="text-[11px] text-muted">Deadline {dateShort(market.deadline)}</div>
         </div>
       </div>
-    </div>
-  );
-}
-
-function ProposeGoal({ disabled }: { disabled: boolean }) {
-  const [threshold, setThreshold] = useState("3.5");
-  const [term, setTerm] = useState(TERMS[0]);
-  const propose = useAction(api.me.proposeGoal);
-  const t = Number(threshold);
-  return (
-    <div className="card p-5">
-      <div className="card-title">Set a goal</div>
-      <p className="mt-1 text-sm text-body">
-        Pick a GPA target for an upcoming term. Your scholarship is finalized after your semester grades are
-        verified.
-      </p>
-      <div className="mt-4 grid grid-cols-2 gap-3">
-        <label className="block text-xs text-muted">
-          GPA target
-          <input className="input num mt-1" value={threshold} onChange={(e) => setThreshold(e.target.value)} />
-        </label>
-        <label className="block text-xs text-muted">
-          Term
-          <select className="input mt-1" value={term} onChange={(e) => setTerm(e.target.value)}>
-            {TERMS.map((x) => (
-              <option key={x}>{x}</option>
-            ))}
-          </select>
-        </label>
-      </div>
-      <button
-        type="button"
-        className="btn mt-4 w-full bg-brand py-2.5 text-white hover:bg-brand-strong"
-        disabled={disabled || !(t >= 2 && t <= 4) || propose.isPending}
-        onClick={() => propose.mutate({ threshold: t, term })}
-      >
-        Submit goal for review
-      </button>
-      {disabled && <p className="mt-2 text-xs text-muted">Your profile is currently not listed.</p>}
-      {propose.error && <p className="mt-2 text-xs text-no">{propose.error.message}</p>}
     </div>
   );
 }

@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from ..db import DomainError, get_db
 from ..models import Disclosure, Market, Student
-from ..services import student_service
+from ..services import student_service, registration_service
 from . import serializers as ser
 
 router = APIRouter(prefix="/api/students", tags=["students"])
@@ -42,8 +42,12 @@ async def get_student(student_id: str, db: Session = Depends(get_db)):
 
 
 class NewStudent(BaseModel):
+    username: str = Field(min_length=3, max_length=80, pattern=r"^[A-Za-z0-9_.-]+$")
+    password: str = Field(min_length=8, max_length=128)
+    academic_history: dict
+    current_course_load: dict
     university: str = Field(min_length=1, max_length=120)
-    year: str = Field(min_length=1, max_length=40)
+    year: str = Field(pattern=r"^(Freshman|Sophomore|Junior|Senior|Graduate)$")
     major: str = Field(min_length=1, max_length=120)
     introduction: str = Field(default="", max_length=4000)
     pitch: str = Field(default="", max_length=4000)
@@ -51,6 +55,5 @@ class NewStudent(BaseModel):
 
 @router.post("")
 async def create_student(req: NewStudent, db: Session = Depends(get_db)):
-    """Demo signup: no credentials; the frontend logs in as the returned user_id."""
-    s = student_service.create_student(db, req.university, req.year, req.major, req.introduction, req.pitch)
-    return {**ser.student_brief(db, s), "user_id": s.user_id}
+    s = registration_service.register(db, req)
+    return {**ser.student_brief(db, s), "user_id": s.user_id, "message": "Requires verification. Your account is unavailable until an admin approves it."}

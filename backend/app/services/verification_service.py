@@ -155,7 +155,10 @@ def approve(db, request, student, reviewer, note=""):
     if request.status != "PENDING":
         raise DomainError("This request has already been reviewed")
     try:
-        if request.type in RECORD_TYPES:
+        if request.type == "REGISTRATION":
+            from .registration_service import activate
+            activate(db, student)
+        elif request.type in RECORD_TYPES:
             _save_record(db, student.id, request.type, request.payload["data"])
         elif request.type in ("UNIVERSITY", "MAJOR"):
             setattr(student, request.type.lower(), request.payload["value"])

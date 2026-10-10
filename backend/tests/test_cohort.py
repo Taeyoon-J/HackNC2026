@@ -104,11 +104,12 @@ def test_resize_preserves_retained_records_and_releases_removed_market(client):
     me = as_user(client, "STUDENT_A")
     original = me("GET", "/api/me/student").json()
     trader_a = as_user(client, "TRADER_A")("GET", "/api/portfolio").json()
-    extra = client.post("/api/students", json={"university": "Wake Forest University", "year": "Junior", "major": "Economics"}).json()
+    from test_registration import registration
+    extra = client.post("/api/students", json=registration(university="Wake Forest University", year="Junior", major="Economics")).json()
     admin("POST", f"/api/admin/students/{extra['id']}/verify")
     extra_me = as_user(client, extra["user_id"])
-    goal = extra_me("POST", "/api/me/goals", json={"threshold": 3.5, "term": "Fall 2026"}).json()["markets"][0]
-    assert admin("POST", f"/api/admin/markets/{goal['id']}/open").status_code == 200
+    goal = extra_me("GET", "/api/me/student").json()["markets"][0]
+    assert goal["status"] == "TRADING"
     assert order(client, "TRADER_B", "YES", "BUY", None, 5, market=goal["id"], order_type="MARKET").status_code == 200
     assert order(client, "TRADER_B", "YES", "BUY", 5, 3, market=goal["id"]).status_code == 200
     as_user(client, "TRADER_B")("PUT", f"/api/favorites/{goal['id']}")

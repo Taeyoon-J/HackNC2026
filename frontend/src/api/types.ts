@@ -30,7 +30,7 @@ export interface StudentBrief {
   introduction: string;
   pitch: string;
   verified: boolean;
-  status: "ACTIVE" | "DELISTED";
+  status: "ACTIVE" | "DELISTED" | "PENDING_VERIFICATION";
 }
 
 export interface Scholarship {
@@ -226,12 +226,12 @@ export interface AdminStudentDetail extends AdminStudent {
 }
 
 export interface CourseRecord { code: string; name: string; credits: number; gpa?: number }
-export type VerificationType = "UNIVERSITY" | "MAJOR" | "COURSE_LOAD" | "FINAL_GPA" | "BIOGRAPHY" | "ACTIVITY" | "APPLICATION";
+export type VerificationType = "REGISTRATION" | "UNIVERSITY" | "MAJOR" | "COURSE_LOAD" | "FINAL_GPA" | "BIOGRAPHY" | "ACTIVITY" | "APPLICATION";
 export interface Verification {
   id: number;
   student: StudentBrief;
   type: VerificationType;
-  payload: { value?: string; previous?: any; data?: any; term?: string; market_id?: string; courses?: CourseRecord[]; credits?: number; gpa?: number };
+  payload: { university?: string; year?: string; major?: string; academic_history?: { terms: { term: string; courses: CourseRecord[] }[] }; current_course_load?: { term: string; courses: CourseRecord[] }; value?: string; previous?: any; data?: any; term?: string; market_id?: string; courses?: CourseRecord[]; credits?: number; gpa?: number };
   evidence: string;
   evidence_file?: EvidenceFile | null;
   file_name: string | null;

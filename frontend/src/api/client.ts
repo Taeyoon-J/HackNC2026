@@ -50,6 +50,13 @@ export interface ProfileInput {
   pitch?: string;
 }
 
+export interface RegistrationInput extends ProfileInput {
+  username: string;
+  password: string;
+  academic_history: { terms: { term: string; courses: import("./types").CourseRecord[] }[] };
+  current_course_load: { term: string; courses: import("./types").CourseRecord[] };
+}
+
 function directoryPath(path: string, filters: DirectoryFilters) {
   const query = new URLSearchParams({ ...filters, page: String(filters.page), page_size: "24", paged: "true" });
   return `${path}?${query}`;
@@ -85,7 +92,7 @@ export const api = {
   trades: (id: string) => request<Trade[]>("GET", `/api/markets/${id}/trades`),
   history: (id: string) => request<HistoryPoint[]>("GET", `/api/markets/${id}/history`),
   student: (id: string) => request<StudentProfile>("GET", `/api/students/${id}`),
-  createStudent: (p: ProfileInput) => request<{ id: string; user_id: string; name: string }>("POST", "/api/students", p),
+  createStudent: (p: RegistrationInput) => request<{ id: string; user_id: string; name: string; message: string }>("POST", "/api/students", p),
   me: {
     verifications: () => request<Verification[]>("GET", "/api/me/verifications"),
     submitVerification: (input: VerificationInput) => request<Verification>("POST", "/api/me/verifications", input),
@@ -93,7 +100,6 @@ export const api = {
     updateProfile: (p: ProfileInput) => request<MyStudent>("PUT", "/api/me/student", p),
     saveDisclosure: ({ type, data }: { type: DisclosureType; data: unknown }) =>
       request<MyStudent>("PUT", `/api/me/student/disclosures/${type}`, { data }),
-    proposeGoal: (g: { threshold: number; term: string }) => request<MyStudent>("POST", "/api/me/goals", g),
   },
   portfolio: () => request<Portfolio>("GET", "/api/portfolio"),
   placeOrder: (o: NewOrder) => request<OrderResult>("POST", "/api/orders", o),

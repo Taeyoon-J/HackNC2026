@@ -55,6 +55,15 @@ export function AdminVerification() {
         <section className="card space-y-4 p-5"><h2 className="font-semibold text-ink">{VERIFICATION_LABELS[request.type]} · {request.student.name}</h2>
           <p className="text-xs text-muted">Requested {new Date(request.created_at).toLocaleString()} · {request.status.toLowerCase()}</p>
           {request.payload.data && <RecordChange request={request} />}
+          {request.type === "REGISTRATION" && <div className="space-y-3 text-sm text-body">
+            <p>{request.payload.university} · {request.payload.year} · {request.payload.major}</p>
+            <p className="rounded-xl bg-brand-soft p-3">Approval activates this account and assigns a random GPA goal and initial achievement probability for the demo.</p>
+            {[...(request.payload.academic_history?.terms ?? []), ...(request.payload.current_course_load ? [request.payload.current_course_load] : [])].map((term) => <div key={term.term}>
+              <h3 className="font-semibold">{term.term}</h3>
+              {term.courses.map((c) => <p key={c.code}>{c.code} · {c.name} · {c.credits} credits{c.gpa !== undefined ? ` · GPA ${c.gpa.toFixed(2)}` : ""}</p>)}
+            </div>)}
+            {request.payload.academic_history?.terms.length === 0 && <p>No completed semesters declared (freshman).</p>}
+          </div>}
           {request.payload.value && <p className="rounded-xl bg-brand-soft p-3 text-sm text-body">{request.payload.previous} → <strong>{request.payload.value}</strong></p>}
           {request.payload.courses && <div className="overflow-x-auto"><table className="w-full text-xs"><thead><tr className="text-left text-muted"><th className="py-2">Course</th><th>Credits</th><th>Grade</th></tr></thead><tbody>{request.payload.courses.map((c) => <tr key={c.code} className="border-t border-line"><td className="py-2">{c.code} · {c.name}</td><td>{c.credits}</td><td>{c.gpa?.toFixed(2) ?? "—"}</td></tr>)}</tbody></table></div>}
           {request.type === "FINAL_GPA" && <p className="rounded-xl bg-gold-soft p-3 text-sm text-gold">Final GPA {request.payload.gpa?.toFixed(2)} for {request.payload.term}.{market && ` Target GPA ≥ ${market.threshold.toFixed(2)}: ${(request.payload.gpa ?? 0) >= market.threshold ? "goal achieved" : "goal missed"}.`} Approval immediately closes trading, cancels pending orders and pays YES shares and the adjusted scholarship.</p>}

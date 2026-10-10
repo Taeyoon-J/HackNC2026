@@ -74,4 +74,6 @@ async def login(req: Login, db: Session = Depends(get_db)):
     if credentials is None or not matches(req.password, credentials.password_hash):
         raise DomainError("Incorrect account ID or password", 401)
     user = db.get(User, credentials.user_id)
+    if user.status != "ACTIVE":
+        raise DomainError("Requires verification. Your account is unavailable until an admin approves it.", 403)
     return {"user_id": user.id, "role": user.role}
