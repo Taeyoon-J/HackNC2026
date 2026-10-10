@@ -56,6 +56,8 @@ async def lock_preview(market_id: str, db: Session = Depends(get_db)):
 @router.post("/markets/{market_id}/lock")
 async def lock(market_id: str, req: LockRequest, db: Session = Depends(get_db)):
     market = market_service.get_market(db, market_id)
+    if market.total_supply:
+        raise DomainError("Initial scholarships are already assigned; probability locking is no longer used")
     s = scholarship_service.lock(db, market, req.probability)
     await manager.broadcast("SCHOLARSHIP_LOCKED", market.id, ser.scholarship(s))
     return await _status_changed(db, market)
@@ -78,6 +80,8 @@ async def close(market_id: str, db: Session = Depends(get_db)):
 @router.post("/markets/{market_id}/resolve")
 async def resolve(market_id: str, req: ResolveRequest, db: Session = Depends(get_db)):
     market = market_service.get_market(db, market_id)
+    if market.total_supply:
+        raise DomainError("Approve a final-GPA verification request to settle this market")
     settlement_service.resolve(db, market, req.value)
     return await _status_changed(db, market)
 

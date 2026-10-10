@@ -3,7 +3,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..db import get_db
-from ..models import Market, Order, Position, Settlement, User, Wallet
+from ..models import AccountCredentials, Market, Order, Position, Settlement, Student, User, Wallet
 from ..services import ledger_service as ledger
 from ..services.matching_engine import contract_price
 from ..services.order_service import OPEN_STATUSES
@@ -16,9 +16,12 @@ router = APIRouter(prefix="/api", tags=["portfolio"])
 @router.get("/users")
 async def list_users(db: Session = Depends(get_db)):
     out = []
+    credentials = {c.user_id: c for c in db.scalars(select(AccountCredentials)).all()}
     for u, w in db.execute(select(User, Wallet).outerjoin(Wallet, Wallet.user_id == User.id)
                           .order_by(User.role, User.id)).all():
         out.append({"id": u.id, "role": u.role, "display_name": u.display_name,
+                    "username": credentials[u.id].username if u.id in credentials else u.id,
+                    "has_password": bool(u.id in credentials and credentials[u.id].password_hash),
                     "available_cents": w.available_cents if w else 0,
                     "reserved_cents": w.reserved_cents if w else 0})
     return out
@@ -37,6 +40,7 @@ async def portfolio(user: User = Depends(current_user), db: Session = Depends(ge
         total_value += value
         positions.append({
             "market_id": m.id, "question": m.question, "market_status": m.status,
+            "student": ser.student_brief(db, db.get(Student, m.student_id)),
             "contract": p.contract, "quantity": p.quantity, "reserved_qty": p.reserved_qty,
             "cost_basis_cents": p.cost_basis_cents,
             "avg_cost_cents": round(p.cost_basis_cents / p.quantity, 2),
@@ -47,12 +51,16 @@ async def portfolio(user: User = Depends(current_user), db: Session = Depends(ge
                              .order_by(Order.created_at.desc())).all()
     settlements = db.scalars(select(Settlement).where(Settlement.user_id == user.id)
                              .order_by(Settlement.created_at.desc())).all()
+    orders = []
+    for o in open_orders:
+        m = db.get(Market, o.market_id)
+        orders.append({**ser.order(o), "student": ser.student_brief(db, db.get(Student, m.student_id))})
     return {
         "user": {"id": user.id, "role": user.role, "display_name": user.display_name},
         "available_cents": w.available_cents, "reserved_cents": w.reserved_cents,
         "positions_value_cents": total_value,
         "positions": positions,
-        "open_orders": [ser.order(o) for o in open_orders],
+        "open_orders": orders,
         "settlements": [{"market_id": s.market_id, "contract": s.contract, "quantity": s.quantity,
                          "payout_cents": s.payout_cents, "created_at": ser.iso(s.created_at)}
                         for s in settlements],

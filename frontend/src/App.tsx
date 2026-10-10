@@ -7,6 +7,9 @@ import { AdminStudents } from "./pages/admin/AdminStudents";
 import { AdminSystem } from "./pages/admin/AdminSystem";
 import { LoginPage } from "./pages/LoginPage";
 import { StudentHome } from "./pages/student/StudentHome";
+import { StudentSettings } from "./pages/student/StudentSettings";
+import { AdminVerification } from "./pages/admin/AdminVerification";
+import { OrdersPage } from "./pages/trader/OrdersPage";
 import { MarketDirectory } from "./pages/trader/MarketDirectory";
 import { MarketPage } from "./pages/trader/MarketPage";
 import { PortfolioPage } from "./pages/trader/PortfolioPage";
@@ -58,9 +61,13 @@ export default function App() {
           <Route path="/" element={<Home />} />
           <Route path="/login" element={<Home />} />
           <Route path="/student" element={<RequireRole roles={["STUDENT"]}><StudentHome /></RequireRole>} />
-          <Route path="/markets" element={<RequireRole roles={["TRADER"]}><MarketDirectory /></RequireRole>} />
+          <Route path="/student/settings" element={<RequireRole roles={["STUDENT"]}><StudentSettings /></RequireRole>} />
+          <Route path="/markets" element={<RequireRole roles={["TRADER"]}><MarketDirectory key="markets" /></RequireRole>} />
+          <Route path="/favorites" element={<RequireRole roles={["TRADER"]}><MarketDirectory key="favorites" favorites /></RequireRole>} />
           <Route path="/markets/:id" element={<RequireRole roles={["TRADER", "STUDENT", "ADMIN"]}><MarketPage /></RequireRole>} />
           <Route path="/portfolio" element={<RequireRole roles={["TRADER"]}><PortfolioPage /></RequireRole>} />
+          <Route path="/orders" element={<RequireRole roles={["TRADER"]}><OrdersPage /></RequireRole>} />
+          <Route path="/admin/verification" element={<RequireRole roles={["ADMIN"]}><AdminVerification /></RequireRole>} />
           <Route path="/admin" element={<RequireRole roles={["ADMIN"]}><AdminPricing /></RequireRole>} />
           <Route path="/admin/students" element={<RequireRole roles={["ADMIN"]}><AdminStudents /></RequireRole>} />
           <Route path="/admin/system" element={<RequireRole roles={["ADMIN"]}><AdminSystem /></RequireRole>} />

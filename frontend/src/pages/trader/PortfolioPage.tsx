@@ -3,6 +3,7 @@ import { PositionsTable } from "../../components/portfolio/PositionsTable";
 import { SettlementHistory } from "../../components/portfolio/SettlementHistory";
 import { OpenOrdersTable } from "../../components/trading/OpenOrdersTable";
 import { usePortfolio } from "../../hooks/queries";
+import { AssetAllocation } from "../../components/portfolio/AssetAllocation";
 
 export function PortfolioPage() {
   const { data: p } = usePortfolio();
@@ -16,6 +17,7 @@ export function PortfolioPage() {
         </p>
       </div>
       <BalanceSummary p={p} />
+      <AssetAllocation portfolio={p} />
       <PositionsTable positions={p.positions} />
       <OpenOrdersTable orders={p.open_orders} showMarket />
       <SettlementHistory rows={p.settlements} />

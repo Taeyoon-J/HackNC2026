@@ -20,6 +20,7 @@ import type {
   DirectoryFilters,
   DirectoryPage,
   AdminStudentDetail,
+  Account, GpaAverage, Verification, VerificationInput, VerificationPage,
 } from "./types";
 
 export class ApiError extends Error {}
@@ -67,6 +68,18 @@ export const api = {
   users: () => request<User[]>("GET", "/api/users"),
   markets: () => request<Market[]>("GET", "/api/markets"),
   searchMarkets: (filters: DirectoryFilters) => request<DirectoryPage<Market>>("GET", directoryPath("/api/markets", filters)),
+  searchFavoriteMarkets: (filters: DirectoryFilters) => request<DirectoryPage<Market>>("GET", `${directoryPath("/api/markets", filters)}&favorites=true`),
+  gpaAverages: () => request<GpaAverage[]>("GET", "/api/students/gpa-averages"),
+  favorites: {
+    list: () => request<string[]>("GET", "/api/favorites"),
+    add: (id: string) => request<{ favorite: boolean }>("PUT", `/api/favorites/${id}`),
+    remove: (id: string) => request<{ favorite: boolean }>("DELETE", `/api/favorites/${id}`),
+  },
+  account: {
+    get: () => request<Account>("GET", "/api/account"),
+    update: (input: { username: string; password: string; current_password: string }) => request<Account>("PUT", "/api/account", input),
+    login: (input: { username: string; password: string }) => request<{ user_id: string; role: User["role"] }>("POST", "/api/account/login", input),
+  },
   market: (id: string) => request<Market>("GET", `/api/markets/${id}`),
   orderbook: (id: string) => request<OrderBook>("GET", `/api/markets/${id}/orderbook`),
   trades: (id: string) => request<Trade[]>("GET", `/api/markets/${id}/trades`),
@@ -74,6 +87,8 @@ export const api = {
   student: (id: string) => request<StudentProfile>("GET", `/api/students/${id}`),
   createStudent: (p: ProfileInput) => request<{ id: string; user_id: string; name: string }>("POST", "/api/students", p),
   me: {
+    verifications: () => request<Verification[]>("GET", "/api/me/verifications"),
+    submitVerification: (input: VerificationInput) => request<Verification>("POST", "/api/me/verifications", input),
     student: () => request<MyStudent>("GET", "/api/me/student"),
     updateProfile: (p: ProfileInput) => request<MyStudent>("PUT", "/api/me/student", p),
     saveDisclosure: ({ type, data }: { type: DisclosureType; data: unknown }) =>
@@ -84,6 +99,11 @@ export const api = {
   placeOrder: (o: NewOrder) => request<OrderResult>("POST", "/api/orders", o),
   cancelOrder: (id: number) => request<Order>("DELETE", `/api/orders/${id}`),
   admin: {
+    verifications: (filters: { q: string; type: string; status: string; page: number }) =>
+      request<VerificationPage>("GET", `/api/admin/verifications?${new URLSearchParams({ ...filters, page: String(filters.page) })}`),
+    verification: (id: number) => request<Verification>("GET", `/api/admin/verifications/${id}`),
+    approveVerification: ({ id, note }: { id: number; note: string }) => request<Verification>("POST", `/api/admin/verifications/${id}/approve`, { note }),
+    rejectVerification: ({ id, note }: { id: number; note: string }) => request<Verification>("POST", `/api/admin/verifications/${id}/reject`, { note }),
     markets: () => request<Market[]>("GET", "/api/admin/markets"),
     searchMarkets: (filters: DirectoryFilters) => request<DirectoryPage<Market>>("GET", directoryPath("/api/admin/markets", filters)),
     searchStudents: (filters: DirectoryFilters) => request<DirectoryPage<AdminStudent>>("GET", directoryPath("/api/admin/students", filters)),

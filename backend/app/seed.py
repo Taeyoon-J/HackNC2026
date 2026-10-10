@@ -87,6 +87,12 @@ def reset_and_seed(*, full_cohort=True) -> None:
         if full_cohort:
             from .demo_data import populate_cohort
             populate_cohort(db, utcnow())
+            from .services.fixed_market_service import upgrade_demo
+            upgrade_demo(db)
+            from .upgrade_workflow import seed_requests
+            seed_requests(db)
+            from .demo_overrides import apply_presets
+            apply_presets(db)
 
 
 def seed(db, now: datetime) -> None:
@@ -103,7 +109,7 @@ def seed(db, now: datetime) -> None:
                           data={"terms": [{"term": t, "gpa": g, "credits": c} for t, g, c in gpas]},
                           verified_at=verified))
         db.add(Disclosure(student_id=sid, type="COURSE_LOAD", title="Current course load",
-                          data={"courses": [{"code": c, "name": n, "credits": cr} for c, n, cr in courses]},
+                          data={"term": "Fall 2026", "courses": [{"code": c, "name": n, "credits": cr} for c, n, cr in courses]},
                           verified_at=verified))
         db.add(Disclosure(student_id=sid, type="ACTIVITY", title="Activities", data={"items": activities},
                           verified_at=verified))
@@ -150,7 +156,7 @@ def seed(db, now: datetime) -> None:
     newcomer = student_service.create_student(db, "NC Central University", "Sophomore", "Chemistry")
     student_service.upsert_disclosure(db, newcomer, "GPA_HISTORY", {"terms": [
         {"term": "Fall 2025", "gpa": 3.44, "credits": 15}, {"term": "Spring 2026", "gpa": 3.58, "credits": 16}]})
-    student_service.upsert_disclosure(db, newcomer, "COURSE_LOAD", {"courses": [
+    student_service.upsert_disclosure(db, newcomer, "COURSE_LOAD", {"term": "Fall 2026", "courses": [
         {"code": "CHEM 2100", "name": "Organic Chemistry I", "credits": 4},
         {"code": "MATH 2010", "name": "Calculus III", "credits": 4},
         {"code": "PHYS 2310", "name": "General Physics I", "credits": 4}]})

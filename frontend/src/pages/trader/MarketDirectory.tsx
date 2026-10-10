@@ -3,8 +3,8 @@ import { api } from "../../api/client";
 import { DirectoryPagination, DirectorySearch, MARKET_STATES, useDirectory } from "../../components/student/DirectorySearch";
 import { usd } from "../../lib/format";
 
-export function MarketDirectory() {
-  const directory = useDirectory("markets-directory", api.searchMarkets);
+export function MarketDirectory({ favorites = false }: { favorites?: boolean }) {
+  const directory = useDirectory(favorites ? "favorites-directory" : "markets-directory", favorites ? api.searchFavoriteMarkets : api.searchMarkets);
   const { data, isLoading, error } = directory;
   const markets = data?.items ?? [];
   const pledged = data?.summary.pledged_cents ?? 0;
@@ -15,11 +15,11 @@ export function MarketDirectory() {
       <section className="grid gap-6 rounded-3xl bg-gradient-to-br from-brand-soft via-surface to-gold-soft p-8 lg:grid-cols-[1.4fr_1fr] lg:items-center">
         <div>
           <h1 className="font-display text-3xl font-semibold leading-tight text-ink sm:text-4xl">
-            Back students. <span className="text-brand">Reward real progress.</span>
+            {favorites ? "Your favorites." : "Back students."} <span className="text-brand">{favorites ? "Keep your shortlist close." : "Reward real progress."}</span>
           </h1>
           <p className="mt-3 max-w-xl text-body">
-            Share your forecast on whether a student will reach their academic goal. The harder the community thinks a
-            goal is, the larger the scholarship the student earns when they achieve it.
+            Share your forecast on whether a student will reach their academic goal. Each student starts with a
+            scholarship that is adjusted by the final YES price after their grades are verified.
           </p>
           <p className="mt-3 text-xs text-muted">Virtual credits only · Students are anonymous · All data is synthetic</p>
         </div>
@@ -32,7 +32,7 @@ export function MarketDirectory() {
 
 
       <section>
-        <h2 className="mb-4 font-display text-xl font-semibold text-ink">Students</h2>
+        <h2 className="mb-4 font-display text-xl font-semibold text-ink">{favorites ? "Favorite students" : "Students"}</h2>
         <div className="mb-4"><DirectorySearch directory={directory} states={MARKET_STATES.filter((s) => s.value !== "DRAFT")} /></div>
         {error && <p className="mb-4 text-sm text-no">{error.message}</p>}
         {!isLoading && markets.length === 0 && <p className="card p-8 text-center text-muted">No students match your search. Try another university or clear the filters.</p>}

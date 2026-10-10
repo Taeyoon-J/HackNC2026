@@ -7,14 +7,16 @@ def test_signup_profile_goal_and_admin_open(client):
     me = as_user(client, r.json()["user_id"])
     assert r.json()["name"] == "Student G"  # A–E seeded, F is the pending newcomer
 
-    p = me("PUT", "/api/me/student", json={"university": "UNC Charlotte", "year": "Sophomore", "major": "History"}).json()
-    assert p["year"] == "Sophomore"
+    assert me("PUT", "/api/me/student", json={"university": "UNC Charlotte", "year": "Sophomore", "major": "History"}).status_code == 400
+    p = me("GET", "/api/me/student").json()
+    assert p["year"] == "Freshman"
 
-    p = me("PUT", "/api/me/student/disclosures/GPA_HISTORY",
-           json={"data": {"terms": [{"term": "Fall 2025", "gpa": 3.5, "credits": 15}]}}).json()
-    assert p["disclosures"][0]["verified_at"] is None
-    # Unverified records are hidden from the public profile.
+    assert me("PUT", "/api/me/student/disclosures/GPA_HISTORY", json={"data": {"terms": []}}).status_code == 403
+    request = me("POST", "/api/me/verifications", json={"type": "COURSE_LOAD", "payload": {"term": "Fall 2026",
+        "courses": [{"code": "MATH 101", "name": "Calculus", "credits": 3}]}, "evidence": "Registrar enrollment record"}).json()
+    # Pending academic changes do not update the current public profile.
     assert client.get(f"/api/students/{p['id']}").json()["disclosures"] == []
+    as_user(client, "ADMIN")("POST", f"/api/admin/verifications/{request['id']}/approve", json={})
 
     p = me("POST", "/api/me/goals", json={"threshold": 3.7, "term": "Fall 2026"}).json()
     market_id = p["markets"][0]["id"]
@@ -25,7 +27,7 @@ def test_signup_profile_goal_and_admin_open(client):
     admin = as_user(client, "ADMIN")
     assert admin("POST", f"/api/admin/markets/{market_id}/open").status_code == 400  # not verified yet
     admin("POST", f"/api/admin/students/{p['id']}/verify")
-    assert admin("POST", f"/api/admin/markets/{market_id}/open").json()["status"] == "PRICE_DISCOVERY"
+    assert admin("POST", f"/api/admin/markets/{market_id}/open").json()["status"] == "TRADING"
     assert market_id in {m["id"] for m in client.get("/api/markets").json()}
     assert len(client.get(f"/api/students/{p['id']}").json()["disclosures"]) == 1
 

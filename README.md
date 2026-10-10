@@ -1,109 +1,167 @@
-# SPE · Student Performance Exchange (HackNC 2026 demo)
+﻿# SPE · Student Performance Exchange (HackNC 2026 demo)
 
-Trade binary YES/NO contracts on whether a student hits an academic goal. The market-implied
-difficulty sets a scholarship that is paid to the student if they succeed.
-All trading uses virtual credits; all student data is synthetic.
+Trade a fixed supply of YES shares on whether a student reaches a semester GPA goal.
+Academic changes require evidence and admin approval. Final GPA approval closes trading,
+settles shares and pays an adjusted scholarship on both success and failure.
+All trading uses virtual credits and all student records are synthetic.
 
-## Running
+## Run on Windows PowerShell
 
-```bash
-# Backend (http://localhost:8000, seeds demo data on first start)
+Run the backend and frontend in separate terminals from this repository:
+
+```powershell
 cd backend
-python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
-.venv/bin/uvicorn app.main:app --reload --port 8000
-
-# Frontend (http://localhost:5173, proxies /api and /ws to :8000)
-cd frontend
-npm install && npm run dev
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+.\.venv\Scripts\python.exe -m uvicorn app.main:app --reload --reload-dir app --port 8000
 ```
 
-Tests: `cd backend && .venv/bin/python -m pytest -q`
-Reset data: "Reset demo data" on the Admin page, or delete `backend/spe.db` and restart.
+```powershell
+cd frontend
+npm ci
+npm run dev
+```
 
-## Roles
+Open http://localhost:5173. Vite proxies `/api` and `/ws` to the backend at port 8000.
+Run `npm run dev` inside **frontend**. There is no npm project in the repository root.
+On macOS/Linux, use `.venv/bin/python` instead of `.venv\Scripts\python.exe`.
 
-The default synthetic cohort contains **1,000 students at 100 US universities**:
-UNC Chapel Hill has exactly 150 students (15%). The other 850 use a discrete
-Gaussian over the remaining university list positions (mean 50, standard
-deviation 22), with at least one student per campus and largest-remainder rounding.
-The fixed seed is 2026. The catalog uses the 2026 US News National Universities
-list, selecting the first 100 institutions and breaking cutoff ties by name.
-Sources are recorded in `backend/app/demo_data.py`; this is a demo snapshot,
-not a live ranking feed.
+```powershell
+# Backend tests (isolated temporary SQLite database)
+cd backend
+.\.venv\Scripts\python.exe -m pytest -q
 
-There are 20 majors, random course grades on a 0–4 scale, credit-weighted term
-GPAs, completed-semester course breakdowns, Fall 2026 course loads, achievements,
-activities, introductions and personal statements. Freshmen have no completed
-college semesters yet. Course codes and records are illustrative synthetic data.
-The first five market demos retain their real simulated trading histories; new
-markets start without a forecast until trades occur. Student F remains pending
-verification, giving 999 public goals and 1,000 admin goals initially.
+# Frontend type checking and production build
+cd frontend
+npm run build
+```
 
-Trader markets, admin students and admin pricing have server-side text search,
-university/major/status filters and 24 results per page. Search includes student
-IDs, schools, majors, profile text and visible records. Admins can inspect pending
-records; traders search only public verified academic records. Personal statements
-are self-reported, immediately shared across roles and are not marked verified.
+## Accounts and pages
 
-To expand an existing six-student demo without deleting its orders or balances:
+Pick a role and search for a demo account on the login page. Accounts start without
+passwords. Student Settings can set an account ID and password; later login for that
+account checks the password. Passwords use salted PBKDF2 hashes. Session authorization
+remains the demo `X-User-Id` header; this is not production authentication.
+
+| Role | Pages and behavior |
+|---|---|
+| Student | My profile: read-only university, year, major, current courses and completed grades; edit About me, personal statement, activities and awards. Expand semesters for course codes and grades. Settings: account credentials and academic verification requests with evidence. |
+| Trader | Markets: name/ID/profile search, YES Buy/Sell, adjustable hour/day/week/month chart, semester GPA compared with a dashed cohort average. Favorites: saved students. Portfolio: positions and asset allocation chart. Orders: pending limit orders and cancellation. |
+| Admin | Verification: oldest-first requests, text/type/status search, proposed changes, evidence and full student profile; approve or reject. Markets: inspect goals and open submitted goals. Students: initial verification and listing controls. System: accounting checks and reset. |
+
+Academic year does not advance automatically in this demo. Completed semesters cannot
+be edited, including through verification requests. University, major and course-load
+requests apply only after approval. Final grades must include every verified course for
+the same semester as the goal; GPA is calculated with course-credit weighting.
+
+## Demo data
+
+The cohort contains **50 students at 10 US universities**. The campus list includes
+UNC Chapel Hill, Duke and NC State, plus Princeton, MIT, Harvard, Stanford, Yale,
+University of Chicago and Johns Hopkins (the seven highest-ranked other campuses
+from the existing 2026 ranking snapshot). These ten demo campuses are not the literal
+national top ten. UNC has 8 students, the closest whole-student allocation to the
+previous 15% share. The other 42 use a discrete Gaussian (mean 5, standard deviation 2)
+over the other campus positions, with at least one student per campus. Seed: 2026.
+Sources are in `backend/app/demo_data.py`.
+
+There are 20 majors, random course grades from 0 to 4, credit-weighted semester GPAs,
+course breakdowns, Fall 2026 course loads, activities, awards, introductions and personal
+statements. Freshmen have no completed college semesters. All 50 seeded students are
+listed, including Student F. New signups still require verification. Public academic records are verified;
+About me and personal statements are self-reported and shared immediately across roles.
+
+Trader A starts with YES shares in six students: A, B, C, D, G and H, plus two pending
+limit orders. Traders B and C start without holdings. The admin queue has five evidence-backed
+requests, including Student A's successful final GPA and Student D's unsuccessful final GPA.
+
+Each active goal issues 100 YES shares. The issuer provides sell inventory and a second
+market maker provides bids. Trades transfer existing shares; they never mint extra supply.
+NO orders, short selling and orders exceeding the fixed supply are rejected. Holdings plus
+pending buys cannot exceed the issued supply; sell orders reserve only owned shares.
+Price-time priority, maker-price execution and self-trade prevention still apply.
+
+Market orders use price protection at 99 cents for buys and 1 cent for sells and cancel
+any unfilled remainder. Limit orders reserve funds/shares until filled or cancelled.
+
+## Scholarship and final GPA
+
+Each goal starts with a reproducible random scholarship of **$1,000–$1,500**.
+There is no scholarship-probability lock step.
+
+Requested demo values persist through reset. Cumulative GPA is calculated from
+verified course credits and grades; Student I has no completed semesters.
+
+| Student | Cumulative GPA | Goal GPA | Initial YES forecast |
+|---|---:|---:|---:|
+| F | 3.66 | 3.8 | 80% |
+| G | 3.30 | 3.5 | 50% |
+| H | 3.40 | 3.4 | 50% |
+| I | None | 3.7 | 30% |
+| J | 3.06 | 3.4 | 27% |
+
+To apply these values to an existing database, run
+`.\.venv\Scripts\python.exe -m app.demo_overrides` from `backend`.
+It backs up the database and records one-share market-maker transfers at the
+requested prices, so price charts and order books agree. Later trades can change
+the forecast. Human holdings and cost bases are preserved.
+
+- Success: initial scholarship + final YES price (0–1) × $100.
+- Failure: initial scholarship − final YES price (0–1) × $100.
+- Both outcomes pay the resulting scholarship to the student.
+- YES shares pay $1 each on success and $0 on failure.
+
+Final price is the last executed YES price at approval, or the current quote midpoint
+when there have been no trades. Approving a final GPA atomically cancels pending orders,
+finalizes the transcript, settles shares and pays the scholarship. An already-reviewed
+request cannot pay twice. A course-load change after final-grade submission requires a
+fresh final-grade request.
+
+To try the workflow, log in as Trader A and inspect Portfolio, Orders and Student A's
+market. Log in as Admin, open Verification and inspect Student A's supporting record;
+approve it to settle that market. Student A can then see the completed semester and
+scholarship receipt. Student D's request demonstrates the failure payout.
+
+## Existing database and reset
+
+For an older six-student database, first expand the cohort, then upgrade the workflow:
 
 ```powershell
 cd backend
 .\.venv\Scripts\python.exe -m app.demo_data
+.\.venv\Scripts\python.exe -m app.upgrade_workflow
 ```
 
-This backs up the SQLite database before adding the cohort and updating the
-synthetic academic profiles. It skips expansion once at least 1,000 students exist.
-Reset demo data regenerates the full cohort. Tests use the small trading fixture
-plus dedicated full-cohort distribution, search and visibility checks.
+Both commands back up `spe.db`. The cohort command keeps students A–50, remaps their
+campuses and preserves their records and trades. It removes excess student accounts
+and markets after cancelling orders, redeeming human holdings at their last mark and
+releasing unused funding. Workflow upgrade preserves existing human YES holdings
+and trading history, cancels old binary orders and redeems retired human NO inventory at
+its last mark. If existing YES holdings exceed 100, that market retains a larger fixed
+supply. Previously settled legacy markets remain historical records. Re-running does not
+reissue shares or duplicate demo holdings. New databases seed the full workflow automatically.
 
-The login page asks "I am a…" — no password. Pick a role, then an account.
-
-| Role | Pages |
-|---|---|
-| Student | **My profile**: edit profile and academic records (edits need admin re-verification), propose a GPA goal, see forecast and scholarship |
-| Trader | **Markets**, market detail with order book, **Portfolio** |
-| Admin | **Pricing** (open goals, lock scholarship, resolve, settle), **Students** (verify, remove from list / restore), **System** (invariants, demo script, reset) |
-
-Students are listed anonymously as "Student A, B, …". Student F is seeded as a new signup waiting for verification.
-
-## Demo script
-
-Admin → System has an "End-to-end demo script" card with one-click account switches for each step.
-
-1. Trader A: on `STU001`, limit buy 100 YES @ 60¢ (rests on the book)
-2. Trader B: buy 100 NO @ 40¢ → **MINT** 100 pairs, $100 collateral
-3. Trader A: sell 50 YES @ 61¢ → Trader C: buy 50 YES @ 61¢ → **TRANSFER_YES**
-4. Admin: lock at 30% → $1,466.85 scholarship → start trading → approve GPA 3.85 → settle
+**Reset demo data** in Admin → System recreates the full cohort, holdings and requests.
 
 ## Layout
 
-```
+```text
 backend/app/
-  services/matching_engine.py      single YES book normalization, trade type (MINT/TRANSFER/BURN) — pure logic
-  services/order_service.py        validation, reservation, matching, cancel (1 order = 1 DB transaction)
-  services/ledger_service.py       double-entry ledger, wallet reservations
-  services/market_service.py       state machine DRAFT→…→SETTLED, stats/VWAP
-  services/scholarship_service.py  scholarship formula, VWAP-based lock, separate reserve
-  services/settlement_service.py   resolution, contract + scholarship payout (idempotent)
-  services/student_service.py      signup, profile/record edits, goal proposals, verify / delist
-  services/invariants.py           supply, collateral, ledger and reservation checks
-  api/                             REST routers (spec §8) + /ws WebSocket
-  seed.py                          5 students, 5 markets, market-maker trade history
+  api/                              REST routes and verification review
+  services/order_service.py         validation, reservation, matching, cancellation
+  services/fixed_market_service.py   YES issuance, funding and demo holdings
+  services/verification_service.py   evidence validation and atomic academic approval
+  services/settlement_service.py     final GPA, share and scholarship payouts
+  services/ledger_service.py         double-entry ledger and wallet reservations
+  services/invariants.py             supply, collateral, ledger and reservation checks
+  schema.py                         additive schema migration
+  demo_data.py                      university catalog and synthetic academic records
+  upgrade_workflow.py               backed-up migration for existing databases
 frontend/src/
-  components/   layout · market · student · trading · portfolio · admin
-  pages/        LoginPage · student/ · trader/ · admin/
-  hooks/        TanStack Query hooks, WebSocket → query invalidation
+  components/                       student, market, trading, portfolio and admin UI
+  pages/                            login and role-specific pages
+  hooks/                            query cache and WebSocket refresh
 ```
 
-### Matching rules
-
-| BID \ ASK | YES SELL | NO BUY |
-|---|---|---|
-| **YES BUY** | TRANSFER_YES | MINT |
-| **NO SELL** | BURN | TRANSFER_NO |
-
-- Price-time priority; trades execute at the maker's price. The taker's price improvement is refunded from their reservation.
-- MARKET orders are limits at 99¢/1¢ (price protection); any unfilled remainder is cancelled.
-- Orders that would cross the user's own resting order are rejected (self-trade prevention).
-- Auth is demo-only: the `X-User-Id` header.
+Legacy binary matching remains covered by regression fixtures; newly issued demo goals
+use only the fixed YES workflow.

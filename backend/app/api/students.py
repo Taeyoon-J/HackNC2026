@@ -11,6 +11,18 @@ from . import serializers as ser
 router = APIRouter(prefix="/api/students", tags=["students"])
 
 
+@router.get("/gpa-averages")
+async def gpa_averages(db: Session = Depends(get_db)):
+    totals = {}
+    for disclosure in db.scalars(select(Disclosure).where(Disclosure.type == "GPA_HISTORY",
+        Disclosure.verified_at.is_not(None), Disclosure.visibility == "PUBLIC")).all():
+        for term in disclosure.data.get("terms", []):
+            bucket = totals.setdefault(term["term"], [])
+            bucket.append(term["gpa"])
+    return [{"term": term, "gpa": round(sum(values) / len(values), 3), "students": len(values)}
+            for term, values in totals.items()]
+
+
 @router.get("/{student_id}")
 async def get_student(student_id: str, db: Session = Depends(get_db)):
     s = db.get(Student, student_id)

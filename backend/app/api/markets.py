@@ -5,7 +5,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..db import get_db
-from ..models import Market, Order, Student, Trade
+from ..models import Favorite, Market, Order, Student, Trade, User
+from .deps import current_user
 from ..services import market_service
 from ..services.matching_engine import aggregate_levels
 from ..services.order_service import OPEN_STATUSES
@@ -16,10 +17,12 @@ router = APIRouter(prefix="/api/markets", tags=["markets"])
 
 
 @router.get("")
-async def list_markets(params: DirectoryParams = Depends(), db: Session = Depends(get_db)):
+async def list_markets(favorites: bool = False, params: DirectoryParams = Depends(), user: User = Depends(current_user), db: Session = Depends(get_db)):
     """Public directory: hides draft goals and delisted students."""
     stmt = select(Market).join(Student, Student.id == Market.student_id).where(
         Market.status != "DRAFT", Student.status == "ACTIVE", Student.verified.is_(True))
+    if favorites:
+        stmt = stmt.where(select(Favorite.market_id).where(Favorite.market_id == Market.id, Favorite.user_id == user.id).exists())
     return directory_page(db, stmt, params, ser.market, markets=True)
 
 

@@ -16,6 +16,8 @@ export interface User {
   display_name: string;
   available_cents: number;
   reserved_cents: number;
+  username?: string;
+  has_password?: boolean;
 }
 
 export interface StudentBrief {
@@ -24,6 +26,7 @@ export interface StudentBrief {
   university: string;
   year: string;
   major: string;
+  cumulative_gpa: number | null;
   introduction: string;
   pitch: string;
   verified: boolean;
@@ -33,13 +36,16 @@ export interface StudentBrief {
 export interface Scholarship {
   probability: number;
   promised_cents: number;
-  status: "LOCKED" | "PAID" | "VOID";
+  status: "INITIAL" | "LOCKED" | "PAID" | "VOID";
   locked_at: string;
   paid_at: string | null;
 }
 
 export interface Market {
   id: string;
+  total_supply: number;
+  initial_scholarship_cents: number;
+  final_price: number | null;
   question: string;
   metric: string;
   term: string;
@@ -95,6 +101,7 @@ export interface HistoryPoint {
 export interface Order {
   id: number;
   market_id: string;
+  student?: StudentBrief;
   user_id: string;
   contract: Contract;
   action: Action;
@@ -118,6 +125,7 @@ export interface OrderResult {
 }
 
 export interface PositionRow {
+  student: StudentBrief;
   market_id: string;
   question: string;
   market_status: MarketStatus;
@@ -216,3 +224,24 @@ export interface DirectoryPage<T> {
 export interface AdminStudentDetail extends AdminStudent {
   disclosures: Disclosure[];
 }
+
+export interface CourseRecord { code: string; name: string; credits: number; gpa?: number }
+export type VerificationType = "UNIVERSITY" | "MAJOR" | "COURSE_LOAD" | "FINAL_GPA";
+export interface Verification {
+  id: number;
+  student: StudentBrief;
+  type: VerificationType;
+  payload: { value?: string; previous?: string; term?: string; market_id?: string; courses?: CourseRecord[]; credits?: number; gpa?: number };
+  evidence: string;
+  evidence_file?: EvidenceFile | null;
+  file_name: string | null;
+  status: "PENDING" | "APPROVED" | "REJECTED";
+  created_at: string;
+  reviewed_at: string | null;
+  review_note: string;
+}
+export interface EvidenceFile { name: string; content_type: string; data_base64: string }
+export interface VerificationInput { type: VerificationType; payload: Verification["payload"]; evidence: string; evidence_file?: EvidenceFile | null }
+export interface VerificationPage { items: Verification[]; total: number; page: number; page_size: number }
+export interface Account { user_id: string; username: string; has_password: boolean }
+export interface GpaAverage { term: string; gpa: number; students: number }

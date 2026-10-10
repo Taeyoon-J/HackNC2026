@@ -38,7 +38,7 @@ function DisclosureBody({ d, threshold }: { d: Disclosure; threshold?: number })
         </details>)}
       </div>;
     case "COURSE_LOAD": {
-      const courses = d.data.courses as { code: string; name: string; credits: number }[];
+      const courses = d.data.courses as { code: string; name: string; credits: number; gpa?: number }[];
       const total = courses.reduce((s, c) => s + c.credits, 0);
       return (
         <ul className="divide-y divide-line text-xs">
@@ -47,7 +47,7 @@ function DisclosureBody({ d, threshold }: { d: Disclosure; threshold?: number })
               <span>
                 <span className="font-mono text-muted">{c.code}</span> {c.name}
               </span>
-              <span className="text-muted">{c.credits} cr</span>
+              <span className="text-muted">{c.credits} cr{c.gpa !== undefined && ` · Grade ${c.gpa.toFixed(2)}`}</span>
             </li>
           ))}
           <li className="flex justify-between py-1.5 font-medium">

@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { api, type ProfileInput } from "../../api/client";
 import type { DisclosureType } from "../../api/types";
 import { GoalCard } from "../../components/student/GoalCard";
 import { ProfileFields, emptyProfile } from "../../components/student/ProfileFields";
 import { RecordEditor } from "../../components/student/RecordEditor";
+import { DisclosureList } from "../../components/student/DisclosureList";
 import { useAction, useMyStudent } from "../../hooks/queries";
 import { usd } from "../../lib/format";
 
@@ -53,8 +55,9 @@ export function StudentHome() {
         <div className="space-y-4">
           <section className="card p-5">
             <h2 className="font-semibold text-ink">Profile</h2>
-            <p className="mb-3 text-xs text-muted">Shown publicly next to your anonymous name.</p>
-            <ProfileFields value={profile} onChange={setProfile} />
+            <p className="mb-3 text-xs text-muted">Edit your introduction and personal statement here. Academic year and past grades are fixed.</p>
+            <ProfileFields value={profile} onChange={setProfile} fixed />
+            <Link to="/student/settings" className="mt-3 block text-xs font-semibold text-brand">Request university, major or course-load changes in Settings →</Link>
             <div className="mt-3 flex justify-end">
               <button
                 type="button"
@@ -73,7 +76,10 @@ export function StudentHome() {
             Edits are hidden from the community until an admin verifies them.
           </p>
           {RECORDS.map((t) => (
-            <RecordEditor key={t} type={t} disclosure={me.disclosures.find((d) => d.type === t)} />
+            t === "GPA_HISTORY" || t === "COURSE_LOAD" ? <section key={t} className="card p-5">
+              <DisclosureList disclosures={me.disclosures.filter((d) => d.type === t)} />
+              <p className="mt-3 text-xs text-muted">{t === "GPA_HISTORY" ? "Approved past grades are read-only. Expand a semester to view course codes and grades." : "Course-load changes and grades require approval in Settings."}</p>
+            </section> : <RecordEditor key={t} type={t} disclosure={me.disclosures.find((d) => d.type === t)} />
           ))}
         </div>
 

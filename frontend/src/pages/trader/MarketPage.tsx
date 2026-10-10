@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import type { Contract } from "../../api/types";
 import { MarketHeader } from "../../components/market/MarketHeader";
 import { PriceChart } from "../../components/market/PriceChart";
 import { TradeTape } from "../../components/market/TradeTape";
@@ -10,7 +9,8 @@ import { OrderBook } from "../../components/trading/OrderBook";
 import { OrderPanel } from "../../components/trading/OrderPanel";
 import { useHistory, useMarket, useOrderBook, usePortfolio, useTrades } from "../../hooks/queries";
 import { useMarketSocket } from "../../hooks/useMarketSocket";
-import { usd } from "../../lib/format";
+import { FavoriteButton } from "../../components/market/FavoriteButton";
+import { useSession } from "../../store/user";
 
 export function MarketPage() {
   const { id = "" } = useParams();
@@ -20,7 +20,7 @@ export function MarketPage() {
   const { data: trades = [] } = useTrades(id);
   const { data: history = [] } = useHistory(id);
   const { data: portfolio } = usePortfolio();
-  const [contract, setContract] = useState<Contract>("YES");
+  const role = useSession((s) => s.role);
   const [price, setPrice] = useState(50);
 
   useEffect(() => {
@@ -32,10 +32,6 @@ export function MarketPage() {
   if (error) return <p className="text-no">{error.message}</p>;
   if (!market) return <div className="card h-96 animate-pulse" />;
 
-  const switchContract = (c: Contract) => {
-    if (c !== contract) setPrice(100 - price);
-    setContract(c);
-  };
   const myOrders = portfolio?.open_orders.filter((o) => o.market_id === id) ?? [];
 
   return (
@@ -44,33 +40,32 @@ export function MarketPage() {
         ← All students
       </Link>
       <MarketHeader market={market} />
+      {role === "TRADER" && <FavoriteButton marketId={market.id} />}
 
       <div className="grid gap-4 lg:grid-cols-[1fr_340px]">
         <div className="space-y-4">
           <div className="card p-4">
             <div className="card-title mb-2 flex justify-between">
-              <span>{contract} price history</span>
+              <span>YES price history</span>
               <span className="num font-normal normal-case tracking-normal text-muted">
-                {market.minted_pairs?.toLocaleString()} pairs minted · collateral {usd(market.collateral_cents)}
+                {market.total_supply.toLocaleString()} total shares
               </span>
             </div>
-            <PriceChart points={history} showNo={contract === "NO"} />
+            <PriceChart points={history} />
           </div>
           <div className="grid gap-4 md:grid-cols-2">
-            <OrderBook book={book} view={contract} onPick={setPrice} />
-            <TradeTape trades={trades} showNo={contract === "NO"} />
+            <OrderBook book={book} view="YES" onPick={setPrice} />
+            <TradeTape trades={trades} />
           </div>
           <OpenOrdersTable orders={myOrders} />
         </div>
         <div className="space-y-4">
           <OrderPanel
             market={market}
-            contract={contract}
-            onContractChange={switchContract}
             price={price}
             onPriceChange={setPrice}
           />
-          <StudentProfileCard studentId={market.student.id} threshold={market.threshold} />
+          <StudentProfileCard studentId={market.student.id} threshold={market.threshold} admin={role === "ADMIN"} />
         </div>
       </div>
     </div>

@@ -69,6 +69,9 @@ async def update_profile(req: ProfileRequest, user: User = Depends(current_user)
 async def upsert_disclosure(dtype: str, req: DisclosureRequest, user: User = Depends(current_user),
                             db: Session = Depends(get_db)):
     s = student_service.student_for_user(db, user.id)
+    if dtype not in ("BIOGRAPHY", "ACTIVITY", "APPLICATION"):
+        from ..db import DomainError
+        raise DomainError("Academic records are read-only. Submit course-load or final-GPA verification in Settings.", 403)
     student_service.upsert_disclosure(db, s, dtype, req.data)
     await manager.broadcast("STUDENT_UPDATED", ALL, {"student_id": s.id})
     return _profile(db, user)

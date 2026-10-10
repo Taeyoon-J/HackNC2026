@@ -64,6 +64,10 @@ class Market(Base):
     volume: Mapped[int] = mapped_column(default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
+    total_supply: Mapped[int] = mapped_column(default=0)
+    initial_scholarship_cents: Mapped[int] = mapped_column(default=0)
+    final_price_cents: Mapped[Optional[int]] = mapped_column(nullable=True)
+
 
 class Order(Base):
     __tablename__ = "orders"
@@ -142,3 +146,31 @@ class Settlement(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
     __table_args__ = (UniqueConstraint("market_id", "user_id", "contract"),)
+
+
+class VerificationRequest(Base):
+    __tablename__ = "verification_requests"
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    student_id: Mapped[str] = mapped_column(ForeignKey("students.id"), index=True)
+    type: Mapped[str]  # UNIVERSITY | MAJOR | COURSE_LOAD | FINAL_GPA
+    payload: Mapped[dict] = mapped_column(JSON)
+    evidence: Mapped[str]
+    evidence_file: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    status: Mapped[str] = mapped_column(default="PENDING", index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    reviewed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    reviewed_by: Mapped[Optional[str]] = mapped_column(ForeignKey("users.id"), nullable=True)
+    review_note: Mapped[str] = mapped_column(default="")
+
+
+class AccountCredentials(Base):
+    __tablename__ = "account_credentials"
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), primary_key=True)
+    username: Mapped[str] = mapped_column(unique=True)
+    password_hash: Mapped[str] = mapped_column(default="")
+
+
+class Favorite(Base):
+    __tablename__ = "favorites"
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), primary_key=True)
+    market_id: Mapped[str] = mapped_column(ForeignKey("markets.id"), primary_key=True)

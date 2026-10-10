@@ -28,6 +28,14 @@ def transition(market: Market, to: str) -> None:
 
 
 def open_market(db: Session, market: Market) -> None:
+    if market.total_supply:
+        if market.status != "DRAFT":
+            raise DomainError("Only draft markets can be opened")
+        market.status = "TRADING"
+        from .fixed_market_service import quote_market
+        quote_market(db, market)
+        db.commit()
+        return
     transition(market, "PRICE_DISCOVERY")
     db.commit()
 
@@ -38,6 +46,9 @@ def start_trading(db: Session, market: Market) -> None:
 
 
 def close_market(db: Session, market: Market, commit: bool = True) -> int:
+    if market.total_supply:
+        bid, ask = best_prices(db, market.id)
+        market.final_price_cents = market.last_price_cents or (round((bid + ask) / 2) if bid is not None and ask is not None else bid or ask)
     transition(market, "CLOSED")
     cancelled = order_service.cancel_all_open(db, market.id)
     if commit:

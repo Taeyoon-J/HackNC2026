@@ -27,7 +27,8 @@ export function OpenOrdersTable({ orders, showMarket = false }: { orders: Order[
                 {showMarket && (
                   <td className="px-4 py-2 font-mono text-muted">
                     <Link to={`/markets/${o.market_id}`} className="hover:text-ink">
-                      {o.market_id}
+                      <span className="block font-sans font-semibold text-ink">{o.student?.name ?? o.market_id}</span>
+                      {o.student && <span className="text-[10px]">{o.market_id}</span>}
                     </Link>
                   </td>
                 )}

@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import type { Market } from "../../api/types";
 import { dateShort, usd } from "../../lib/format";
 import { MarketStatusBadge } from "./MarketStatusBadge";
+import { FavoriteButton } from "./FavoriteButton";
 
 export function MarketCard({ market }: { market: Market }) {
   const p = market.last_price;
@@ -24,10 +25,11 @@ export function MarketCard({ market }: { market: Market }) {
             </div>
           </div>
         </div>
-        <MarketStatusBadge status={market.status} />
+        <div className="flex flex-col items-end gap-2"><MarketStatusBadge status={market.status} /><FavoriteButton marketId={market.id} /></div>
       </div>
 
       <div className="text-xs text-muted">{market.student.university}</div>
+      <div className="text-xs text-muted">Cumulative GPA <span className="num font-semibold text-ink">{market.student.cumulative_gpa != null ? market.student.cumulative_gpa.toFixed(2) : "None"}</span></div>
       {market.student.introduction && <p className="line-clamp-2 text-sm text-body">{market.student.introduction}</p>}
 
       <div className="rounded-xl bg-sunken px-4 py-3">
@@ -63,10 +65,10 @@ export function MarketCard({ market }: { market: Market }) {
       <div className="mt-auto flex items-end justify-between border-t border-line pt-3">
         <div>
           <div className="text-xs text-muted">
-            {settled ? "Scholarship" : market.scholarship ? "Scholarship if achieved" : "Scholarship"}
+            {settled ? "Scholarship paid" : "Initial scholarship"}
           </div>
           <div className={`num font-display text-xl font-semibold ${market.scholarship ? "text-gold" : "text-faint"}`}>
-            {market.scholarship ? usd(market.scholarship.promised_cents, 0) : "Being priced"}
+            {settled && market.scholarship ? usd(market.scholarship.promised_cents, 0) : usd(market.initial_scholarship_cents, 0)}
           </div>
         </div>
         <div className="text-right text-xs text-muted">

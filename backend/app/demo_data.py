@@ -1,7 +1,8 @@
 """Reproducible synthetic cohort; course names/codes are illustrative, not catalogs.
 
-100 institutions selected in 2026 US News National Universities order. Ties at
-the boundary are broken by name (Colorado Boulder is the 101st institution).
+Ten demo campuses: UNC, Duke and NC State plus the seven highest-ranked
+other institutions from the existing 2026 US News National Universities snapshot.
+The selected demo campuses are not a claim that UNC and NC State rank in the top ten.
 Sources: https://www.collegekickstart.com/blog/item/u-s-news-world-report-posts-2026-college-rankings
 https://poetsandquants.com/2025/09/23/u-s-news-2026-best-business-schools-ranking-mit-joins-wharton-at-the-top/2/
 """
@@ -9,11 +10,13 @@ import math
 import random
 from datetime import datetime
 
-from sqlalchemy import select
+from sqlalchemy import delete, or_, select, update
 
 from .models import Disclosure, Market, Student, User, Wallet
 
 UNC = "UNC Chapel Hill"
+COHORT_SIZE = 50
+UNC_COUNT = 8  # Closest whole-student allocation to the previous 15% UNC share.
 UNIVERSITIES = """Princeton University
 Massachusetts Institute of Technology
 Harvard University
@@ -22,98 +25,8 @@ Yale University
 University of Chicago
 Duke University
 Johns Hopkins University
-Northwestern University
-University of Pennsylvania
-California Institute of Technology
-Cornell University
-Brown University
-Dartmouth College
-Columbia University
-University of California, Berkeley
-Rice University
-University of California, Los Angeles
-Vanderbilt University
-Carnegie Mellon University
-University of Michigan, Ann Arbor
-University of Notre Dame
-Washington University in St. Louis
-Emory University
-Georgetown University
 UNC Chapel Hill
-University of Virginia
-University of Southern California
-University of California, San Diego
-University of Florida
-University of Texas at Austin
-Georgia Institute of Technology
-New York University
-University of California, Davis
-University of California, Irvine
-Boston College
-Tufts University
-University of Illinois Urbana-Champaign
-University of Wisconsin-Madison
-University of California, Santa Barbara
-Ohio State University
-Boston University
-Rutgers University-New Brunswick
-University of Maryland, College Park
-University of Washington
-Lehigh University
-Northeastern University
-Purdue University
-University of Georgia
-University of Rochester
-Case Western Reserve University
-Florida State University
-Texas A&M University
-Virginia Tech
-Wake Forest University
-William & Mary
-University of California, Merced
-Villanova University
-George Washington University
-Santa Clara University
-Stony Brook University
-Pennsylvania State University
-University of Minnesota, Twin Cities
-Michigan State University
-NC State University
-Rensselaer Polytechnic Institute
-University of Massachusetts Amherst
-University of Miami
-Brandeis University
-Tulane University
-University of Connecticut
-University of Pittsburgh
-Binghamton University
-Indiana University Bloomington
-Clemson University
-Rutgers University-Newark
-Syracuse University
-University at Buffalo
-University of California, Riverside
-Colorado School of Mines
-Drexel University
-New Jersey Institute of Technology
-Stevens Institute of Technology
-Pepperdine University
-University of Illinois Chicago
-Worcester Polytechnic Institute
-Yeshiva University
-American University
-Baylor University
-Howard University
-Marquette University
-Rochester Institute of Technology
-Southern Methodist University
-University of California, Santa Cruz
-University of Delaware
-University of South Florida
-Florida International University
-Fordham University
-Rutgers University-Camden
-Texas Christian University""".splitlines()
+NC State University""".splitlines()
 
 # The same field-specific courses recur at increasing levels across semesters.
 MAJORS = {
@@ -141,25 +54,23 @@ MAJORS = {
 
 
 def university_counts():
-    """150 UNC; 850 across the other 99, discrete Gaussian mu=50, sigma=22.
-
-    Reserve one place per campus, then allocate the remaining 751 using largest
-    remainders. This gives exactly 1,000 students and represents every campus.
-    """
+    """Eight UNC students; the other 42 use a discrete Gaussian over nine campuses."""
     others = [(i + 1, u) for i, u in enumerate(UNIVERSITIES) if u != UNC]
-    weights = [math.exp(-0.5 * ((i - 50) / 22) ** 2) for i, _ in others]
-    quotas = [751 * w / sum(weights) for w in weights]
+    weights = [math.exp(-0.5 * ((i - 5) / 2) ** 2) for i, _ in others]
+    available = COHORT_SIZE - UNC_COUNT
+    quotas = [(available - len(others)) * w / sum(weights) for w in weights]
     counts = [1 + math.floor(q) for q in quotas]
-    for i in sorted(range(99), key=lambda i: quotas[i] % 1, reverse=True)[:850 - sum(counts)]:
+    for i in sorted(range(len(others)), key=lambda i: quotas[i] % 1, reverse=True)[:available - sum(counts)]:
         counts[i] += 1
-    return {UNC: 150, **{u: n for (_, u), n in zip(others, counts)}}
+    return {UNC: UNC_COUNT, **{u: n for (_, u), n in zip(others, counts)}}
 
 
 def cohort_profiles():
+    from .demo_overrides import PRESETS, retarget_history
     rng = random.Random(2026)
     counts = university_counts()
     # Keep demo accounts A-F and their identifiers stable.
-    first = [UNC, "NC State University", "Duke University", "Wake Forest University", UNC, "University of Miami"]
+    first = [UNC, "NC State University", "Duke University", "Stanford University", UNC, "Harvard University"]
     for u in first:
         counts[u] -= 1
     remaining = [u for u, count in counts.items() for _ in range(count)]
@@ -198,7 +109,11 @@ def cohort_profiles():
                    "result": rng.choice(["Finalist", "Awarded", "Presented", "Completed"])}]
         if terms and terms[-1]["gpa"] >= 3.5:
             awards.append({"name": f"Dean's List {terms[-1]['term']}", "result": "Awarded"})
-        yield n, university, year, major, {"GPA_HISTORY": {"terms": terms}, "COURSE_LOAD": {"term": "Fall 2026", "courses": courses},
+        history = {"terms": terms}
+        preset = PRESETS.get(f"STU{n:03d}")
+        if preset:
+            history = retarget_history(history, preset["cumulative"])
+        yield n, university, year, major, {"GPA_HISTORY": history, "COURSE_LOAD": {"term": "Fall 2026", "courses": courses},
                                               "ACTIVITY": {"items": activities}, "APPLICATION": {"items": awards}, "BIOGRAPHY": biography}
 
 
@@ -236,6 +151,77 @@ def populate_cohort(db, now):
     db.commit()
 
 
+def resize_cohort(db, now):
+    """Keep the first 50 profiles and their records; remove excess demo data atomically.
+
+    Cancel removed markets' orders, refund human holdings at the last mark, and
+    release funding before deleting their related rows. Ledger history remains.
+    """
+    from .models import (AccountCredentials, Favorite, LedgerEntry, Order, Position,
+                         Scholarship, Settlement, Trade, VerificationRequest)
+    from .services import invariants, ledger_service as ledger, order_service
+
+    campuses = {f"STU{n:03d}": university for n, university, *_ in cohort_profiles()}
+    students = db.scalars(select(Student)).all()
+    removed = [s for s in students if s.id not in campuses]
+    removed_ids = [s.id for s in removed]
+    removed_users = [s.user_id for s in removed]
+    try:
+        markets = db.scalars(select(Market).where(Market.student_id.in_(removed_ids))).all()
+        market_ids = [m.id for m in markets]
+        for market in markets:
+            order_service.cancel_all_open(db, market.id)
+            for p in db.scalars(select(Position).where(Position.market_id == market.id, Position.quantity > 0)).all():
+                if p.user_id not in removed_users and not p.user_id.startswith("MM_"):
+                    mark = market.last_price_cents if market.last_price_cents is not None else 50
+                    refund = p.quantity * (mark if p.contract == "YES" else 100 - mark)
+                    ledger.post(db, [(ledger.TREASURY, -refund), (ledger.user_account(p.user_id), refund)], "COHORT_HOLDING_REDEMPTION", now=now)
+            for account in (ledger.collateral_account(market.id), ledger.scholarship_account(market.id)):
+                amount = ledger.balance(db, account)
+                if amount:
+                    ledger.post(db, [(account, -amount), (ledger.TREASURY, amount)], "COHORT_FUNDING_RELEASE", now=now)
+        for student in removed:
+            w = db.get(Wallet, student.user_id)
+            if w and w.available_cents:
+                ledger.post(db, [(ledger.user_account(student.user_id), -w.available_cents),
+                                 (ledger.TREASURY, w.available_cents)], "COHORT_ACCOUNT_RELEASE", now=now)
+
+        trades = select(Trade.id).where(Trade.market_id.in_(market_ids))
+        db.execute(update(LedgerEntry).where(LedgerEntry.ref_trade_id.in_(trades)).values(ref_trade_id=None))
+        db.execute(delete(Favorite).where(or_(Favorite.market_id.in_(market_ids), Favorite.user_id.in_(removed_users))))
+        db.execute(delete(VerificationRequest).where(VerificationRequest.student_id.in_(removed_ids)))
+        db.execute(delete(Disclosure).where(Disclosure.student_id.in_(removed_ids)))
+        db.execute(delete(Settlement).where(or_(Settlement.market_id.in_(market_ids), Settlement.user_id.in_(removed_users))))
+        db.execute(delete(Position).where(or_(Position.market_id.in_(market_ids), Position.user_id.in_(removed_users))))
+        db.execute(delete(Trade).where(Trade.market_id.in_(market_ids)))
+        db.execute(delete(Order).where(or_(Order.market_id.in_(market_ids), Order.user_id.in_(removed_users))))
+        db.execute(delete(Scholarship).where(Scholarship.market_id.in_(market_ids)))
+        db.execute(delete(Market).where(Market.id.in_(market_ids)))
+        db.execute(delete(AccountCredentials).where(AccountCredentials.user_id.in_(removed_users)))
+        db.execute(delete(Student).where(Student.id.in_(removed_ids)))
+        db.execute(delete(Wallet).where(Wallet.user_id.in_(removed_users)))
+        db.execute(delete(User).where(User.id.in_(removed_users)))
+        for student in students:
+            if student.id not in campuses:
+                continue
+            previous, student.university = student.university, campuses[student.id]
+            bio = db.scalar(select(Disclosure).where(Disclosure.student_id == student.id, Disclosure.type == "BIOGRAPHY"))
+            if bio and previous != student.university:
+                bio.data = {key: value.replace(previous, student.university) if isinstance(value, str) else value
+                            for key, value in bio.data.items()}
+            for request in db.scalars(select(VerificationRequest).where(VerificationRequest.student_id == student.id,
+                VerificationRequest.type == "UNIVERSITY", VerificationRequest.status == "PENDING")).all():
+                request.payload = {**request.payload, "previous": student.university}
+        failed = [c for c in invariants.check_all(db) if not c["ok"]]
+        if failed:
+            raise RuntimeError(f"Cohort resize failed consistency checks: {failed}")
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+    return len(removed)
+
+
 if __name__ == "__main__":
     import json
     import sqlite3
@@ -245,15 +231,19 @@ if __name__ == "__main__":
 
     with SessionLocal() as db:
         current = db.scalars(select(Student)).all()
-        if len(current) < 1000:
-            if engine.url.get_backend_name() != "sqlite":
-                raise SystemExit("Use the demo SQLite database for this expansion")
-            database = Path(engine.url.database).resolve()
-            backup = database.with_name(f"spe.before-cohort-{datetime.now():%Y%m%d-%H%M%S}.db")
-            with sqlite3.connect(str(database)) as source, sqlite3.connect(str(backup)) as target:
-                source.backup(target)
-            print(f"Backup: {backup.name}")
+        if engine.url.get_backend_name() != "sqlite":
+            raise SystemExit("Use the demo SQLite database for this update")
+        database = Path(engine.url.database).resolve()
+        backup = database.with_name(f"spe.before-cohort-{datetime.now():%Y%m%d-%H%M%S}.db")
+        with sqlite3.connect(str(database)) as source, sqlite3.connect(str(backup)) as target:
+            source.backup(target)
+        print(f"Backup: {backup.name}")
+        from .schema import ensure_schema
+        ensure_schema()
+        if len(current) < COHORT_SIZE:
             populate_cohort(db, utcnow())
+        removed = resize_cohort(db, utcnow())
         counts = Counter(db.scalars(select(Student.university)).all())
         print(json.dumps({"students": sum(counts.values()), "universities": len(counts),
-                          "unc": counts[UNC], "other_students": sum(counts.values()) - counts[UNC]}))
+                          "unc": counts[UNC], "other_students": sum(counts.values()) - counts[UNC],
+                          "removed": removed, "distribution": dict(counts)}))

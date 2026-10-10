@@ -1,21 +1,20 @@
 import { useState } from "react";
 import { api } from "../../api/client";
-import type { Action, Contract, Market, OrderResult, OrderType } from "../../api/types";
+import type { Action, Market, OrderResult, OrderType } from "../../api/types";
 import { useAction, usePortfolio } from "../../hooks/queries";
 import { TRADABLE, usd } from "../../lib/format";
 
 interface Props {
   market: Market;
-  contract: Contract;
-  onContractChange: (c: Contract) => void;
   price: number;
   onPriceChange: (p: number) => void;
 }
 
-export function OrderPanel({ market, contract, onContractChange, price, onPriceChange }: Props) {
+export function OrderPanel({ market, price, onPriceChange }: Props) {
+  const contract = "YES";
   const [action, setAction] = useState<Action>("BUY");
   const [orderType, setOrderType] = useState<OrderType>("LIMIT");
-  const [quantity, setQuantity] = useState(100);
+  const [quantity, setQuantity] = useState(10);
   const [result, setResult] = useState<OrderResult | null>(null);
   const { data: portfolio } = usePortfolio();
   const place = useAction(api.placeOrder);
@@ -25,12 +24,8 @@ export function OrderPanel({ market, contract, onContractChange, price, onPriceC
   const held = portfolio?.positions.find((p) => p.market_id === market.id && p.contract === contract);
   const sellable = held ? held.quantity - held.reserved_qty : 0;
 
-  const yesAsk = market.best_ask;
-  const yesBid = market.best_bid;
-  const quote = {
-    YES: action === "BUY" ? yesAsk : yesBid,
-    NO: action === "BUY" ? (yesBid != null ? 100 - yesBid : null) : yesAsk != null ? 100 - yesAsk : null,
-  };
+  const pendingBuys = portfolio?.open_orders.filter((o) => o.market_id === market.id && o.action === "BUY").reduce((s, o) => s + o.remaining, 0) ?? 0;
+  const buyCapacity = Math.max(0, market.total_supply - (held?.quantity ?? 0) - pendingBuys);
 
   const effPrice = orderType === "MARKET" ? (action === "BUY" ? 99 : 1) : price;
   const total = effPrice * quantity;
@@ -38,6 +33,8 @@ export function OrderPanel({ market, contract, onContractChange, price, onPriceC
     ? "Only traders can place orders"
     : !tradable
       ? "Market is not open for trading"
+      : action === "BUY" && quantity > buyCapacity
+        ? `Only ${buyCapacity} shares available after your holdings and pending buys`
       : action === "SELL" && quantity > sellable
         ? `Only ${sellable} available to sell`
         : action === "BUY" && portfolio && total > portfolio.available_cents
@@ -54,27 +51,7 @@ export function OrderPanel({ market, contract, onContractChange, price, onPriceC
 
   return (
     <div className="card p-4">
-      <div className="mb-3 grid grid-cols-2 gap-2">
-        {(["YES", "NO"] as const).map((c) => (
-          <button
-            key={c}
-            type="button"
-            onClick={() => onContractChange(c)}
-            className={`rounded-lg border px-3 py-2.5 text-left transition ${
-              contract === c
-                ? c === "YES"
-                  ? "border-yes bg-yes/10"
-                  : "border-no bg-no/10"
-                : "border-line hover:border-faint"
-            }`}
-          >
-            <div className={`text-sm font-bold ${c === "YES" ? "text-yes" : "text-no"}`}>{c}</div>
-            <div className="num text-xs text-muted">
-              {action === "BUY" ? "Buy" : "Sell"} {quote[c] != null ? `${quote[c]}¢` : "—"}
-            </div>
-          </button>
-        ))}
-      </div>
+      <div className="mb-3 flex justify-between text-sm"><strong className="text-yes">YES shares</strong><span className="text-xs text-muted">{market.total_supply} issued</span></div>
 
       <Segmented
         value={action}
@@ -113,10 +90,11 @@ export function OrderPanel({ market, contract, onContractChange, price, onPriceC
             </div>
           </Field>
         )}
-        <Field label="Quantity (contracts)" hint={action === "SELL" ? `${sellable} available` : undefined}>
+        <Field label="Quantity (shares)" hint={`${action === "SELL" ? sellable : buyCapacity} available`}>
           <input
             type="number"
             min={1}
+            max={action === "SELL" ? sellable : buyCapacity}
             className="input num"
             value={quantity}
             onChange={(e) => setQuantity(Math.max(1, Math.floor(Number(e.target.value) || 1)))}
@@ -146,7 +124,7 @@ export function OrderPanel({ market, contract, onContractChange, price, onPriceC
         type="button"
         onClick={submit}
         disabled={!!disabledReason || place.isPending}
-        className={`btn mt-4 w-full py-2.5 text-white ${contract === "YES" ? "bg-yes hover:bg-yes/90" : "bg-no hover:bg-no/90"}`}
+        className="btn mt-4 w-full bg-yes py-2.5 text-white hover:bg-yes/90"
       >
         {place.isPending ? "Placing…" : `${action === "BUY" ? "Buy" : "Sell"} ${quantity} ${contract}`}
       </button>

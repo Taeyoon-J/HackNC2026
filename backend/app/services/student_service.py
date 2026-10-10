@@ -18,6 +18,19 @@ DISCLOSURE_TITLES = {
 FINAL_STATUSES = ("SETTLED",)
 
 
+def cumulative_gpa(history: dict) -> float | None:
+    credits, points = 0, 0.0
+    for term in history.get("terms", []):
+        courses = term.get("courses", [])
+        if courses:
+            credits += sum(c["credits"] for c in courses)
+            points += sum(c["gpa"] * c["credits"] for c in courses)
+        else:
+            credits += term.get("credits", 0)
+            points += term["gpa"] * term.get("credits", 0)
+    return round(points / credits, 2) if credits else None
+
+
 def student_for_user(db: Session, user_id: str) -> Student:
     student = db.scalar(select(Student).where(Student.user_id == user_id))
     if student is None:
@@ -44,7 +57,8 @@ def create_student(db: Session, university: str, year: str, major: str, introduc
 
 def update_profile(db: Session, student: Student, university: str, year: str, major: str,
                    introduction: str | None = None, pitch: str | None = None) -> Student:
-    student.university, student.year, student.major = university, year, major
+    if (university, year, major) != (student.university, student.year, student.major):
+        raise DomainError("University and major changes require a verification request in Settings. Academic year is read-only.")
     db.commit()
     if introduction is not None or pitch is not None:
         existing = db.scalar(select(Disclosure).where(Disclosure.student_id == student.id, Disclosure.type == "BIOGRAPHY"))
@@ -109,6 +123,9 @@ def propose_goal(db: Session, student: Student, threshold: float, term: str) -> 
     market = Market(id=market_id, student_id=student.id, threshold=threshold, term=term, deadline=deadline,
                     question=f"Will {name} earn a {term} GPA of {threshold} or higher?", status="DRAFT")
     db.add(market)
+    db.commit()
+    from .fixed_market_service import initialize_market
+    initialize_market(db, market)
     db.commit()
     return market
 

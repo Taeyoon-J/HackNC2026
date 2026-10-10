@@ -1,7 +1,7 @@
 import { useSearchParams } from "react-router-dom";
 import { MarketLifecycleControls } from "../../components/admin/MarketLifecycleControls";
-import { ResolvePanel } from "../../components/admin/ResolvePanel";
-import { ScholarshipLockPanel } from "../../components/admin/ScholarshipLockPanel";
+import { ScholarshipSummary } from "../../components/admin/ScholarshipSummary";
+import { Link } from "react-router-dom";
 import { MarketStatusBadge } from "../../components/market/MarketStatusBadge";
 import { useMarket } from "../../hooks/queries";
 import { api } from "../../api/client";
@@ -19,8 +19,8 @@ export function AdminPricing() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="font-display text-2xl font-semibold text-ink">Pricing & outcomes</h1>
-        <p className="text-sm text-muted">Open goals, lock scholarship amounts, verify results and settle.</p>
+        <h1 className="font-display text-2xl font-semibold text-ink">Markets & scholarships</h1>
+        <p className="text-sm text-muted">Initial scholarships are assigned automatically. Approve final GPA in Verification to settle.</p>
       </div>
       <DirectorySearch directory={directory} states={MARKET_STATES} />
       {(directory.error ?? requestedError) && <p className="text-sm text-no">{(directory.error ?? requestedError)?.message}</p>}
@@ -55,10 +55,8 @@ export function AdminPricing() {
           <div className="space-y-4">
             <div className="px-1 font-display text-lg text-ink">{market.question}</div>
             <MarketLifecycleControls market={market} />
-            <div className="grid gap-4 xl:grid-cols-2">
-              <ScholarshipLockPanel market={market} />
-              <ResolvePanel market={market} />
-            </div>
+            <ScholarshipSummary market={market} />
+            <Link to="/admin/verification" className="block text-sm font-semibold text-brand">Review final GPA and evidence in Verification →</Link>
             <StudentProfileCard key={market.student.id} studentId={market.student.id} threshold={market.threshold} admin />
           </div>
         )}

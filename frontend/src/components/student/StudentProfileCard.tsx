@@ -27,6 +27,7 @@ export function StudentProfileCard({ studentId, threshold, admin = false }: { st
           </div>
         </div>
       </div>
+      <div className="mb-4 rounded-xl bg-sunken p-3 text-sm"><span className="text-muted">Cumulative GPA</span><strong className="num ml-3 text-ink">{s.cumulative_gpa != null ? s.cumulative_gpa.toFixed(2) : "None"}</strong></div>
       <PersonalStatement student={s} />
       <div className="card-title mb-3">Disclosures</div>
       <DisclosureList disclosures={s.disclosures} threshold={threshold} />

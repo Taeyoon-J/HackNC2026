@@ -4,19 +4,15 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from .api import admin, markets, me, orders, portfolio, students
+from .api import account, admin, favorites, markets, me, orders, portfolio, students, verifications
 from .db import Base, DomainError, engine
 from .realtime.ws_manager import ALL, manager
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     from .seed import is_seeded, reset_and_seed
-    Base.metadata.create_all(engine)
-    # create_all leaves existing tables intact; add the directory lookup index
-    # to demo databases created before the cohort expansion as well.
-    from .models import Disclosure
-    for index in Disclosure.__table__.indexes:
-        index.create(engine, checkfirst=True)
+    from .schema import ensure_schema
+    ensure_schema()
     if not is_seeded():
         reset_and_seed()
     yield
@@ -25,7 +21,7 @@ async def lifespan(_: FastAPI):
 app = FastAPI(title="Student Performance Exchange", lifespan=lifespan)
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
-for module in (markets, orders, portfolio, students, me, admin):
+for module in (markets, orders, portfolio, students, me, admin, account, favorites, verifications):
     app.include_router(module.router)
 
 

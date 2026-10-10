@@ -4,6 +4,7 @@ from sqlalchemy import String, cast, func, or_, select
 
 from collections import defaultdict
 from datetime import timedelta
+import re
 
 from ..db import utcnow
 from ..models import Disclosure, Market, Order, Scholarship, Student, Trade, User
@@ -17,6 +18,8 @@ def prefetch_page(db, rows, markets):
     db.info["directory_users"] = {u.id: u for u in db.scalars(select(User).where(User.id.in_([s.user_id for s in students]))).all()}
     disclosures = db.scalars(select(Disclosure).where(Disclosure.student_id.in_(student_ids))).all()
     db.info["directory_bios"] = {d.student_id: d for d in disclosures if d.type == "BIOGRAPHY"}
+    db.info["directory_histories"] = {d.student_id: d for d in disclosures
+        if d.type == "GPA_HISTORY" and d.verified_at and d.visibility == "PUBLIC"}
     if not markets:
         pending = defaultdict(int)
         for d in disclosures:
@@ -65,7 +68,11 @@ def directory_page(db, stmt, params, serialize, *, markets=False, admin=False):
         base.with_only_columns(Student.id))).distinct().order_by(Student.major)).all()
     total_all = db.scalar(select(func.count()).select_from(base.subquery()))
     filtered = base
-    for token in params.q.lower().split():
+    name_match = re.fullmatch(r"student\s*([a-z]|\d+)", params.q.lower())
+    if name_match:
+        compact = "student" + name_match.group(1)
+        filtered = filtered.where(func.replace(func.lower(User.display_name), " ", "") == compact)
+    for token in ([] if name_match else params.q.lower().split()):
         fields = [Student.id, Student.university, Student.major, Student.year, User.display_name]
         if markets:
             fields += [Market.id, Market.question, Market.term]

@@ -5,13 +5,16 @@ import { useSession, type Role } from "../../store/user";
 import { WalletBadge } from "./WalletBadge";
 
 const NAV: Record<Role, [string, string][]> = {
-  STUDENT: [["/student", "My profile"]],
+  STUDENT: [["/student", "My profile"], ["/student/settings", "Settings"]],
   TRADER: [
     ["/markets", "Markets"],
+    ["/favorites", "Favorites"],
     ["/portfolio", "Portfolio"],
+    ["/orders", "Orders"],
   ],
   ADMIN: [
-    ["/admin", "Pricing"],
+    ["/admin/verification", "Verification"],
+    ["/admin", "Markets"],
     ["/admin/students", "Students"],
     ["/admin/system", "System"],
   ],
@@ -31,7 +34,7 @@ export function Header() {
 
   return (
     <header className="sticky top-0 z-20 border-b border-line bg-canvas/90 backdrop-blur">
-      <div className="mx-auto flex max-w-7xl items-center gap-4 px-4 py-3">
+      <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-3 px-4 py-3">
         <NavLink to="/" className="flex items-center gap-2.5">
           <Logo />
           <span className="hidden leading-tight md:block">
@@ -40,7 +43,7 @@ export function Header() {
           </span>
         </NavLink>
         {role && (
-          <nav className="flex gap-1">
+          <nav className="order-3 flex w-full gap-1 overflow-x-auto sm:order-none sm:w-auto">
             {NAV[role].map(([to, label]) => (
               <NavLink key={to} to={to} end className={link}>
                 {label}

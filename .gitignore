@@ -1,9 +1,12 @@
 backend/.venv/
 backend/spe.db
 backend/spe.before-cohort-*.db
+backend/spe.before-workflow-*.db
+backend/spe.before-overrides-*.db
 __pycache__/
 .pytest_cache/
 frontend/node_modules/
 frontend/dist/
 .DS_Store
 *.tsbuildinfo
+.ui-check/

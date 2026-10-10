@@ -1,4 +1,5 @@
 import { useState } from "react";
+import type { User } from "../api/types";
 import { useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client";
@@ -10,7 +11,7 @@ import { ROLE_HOME, useSession, type Role } from "../store/user";
 const ROLES: { role: Role; title: string; blurb: string; icon: string }[] = [
   { role: "STUDENT", title: "Student", blurb: "Share your academic record and set a goal to earn a scholarship.", icon: "🎓" },
   { role: "TRADER", title: "Trader", blurb: "Browse student goals and share your forecast with virtual credits.", icon: "📈" },
-  { role: "ADMIN", title: "Admin", blurb: "Verify students, price scholarships and resolve outcomes.", icon: "🛡️" },
+  { role: "ADMIN", title: "Admin", blurb: "Review evidence, verify academic changes and settle GPA goals.", icon: "🛡️" },
 ];
 
 export function LoginPage() {
@@ -58,19 +59,24 @@ export function LoginPage() {
           {role === "TRADER" && <AccountPicker role="TRADER" onPick={(id) => enter(id, "TRADER")} />}
           {role === "STUDENT" && <StudentPicker onPick={(id) => enter(id, "STUDENT")} />}
         </div>
-        <p className="mt-4 text-center text-xs text-muted">Demo only · no password needed · virtual credits</p>
+        <p className="mt-4 text-center text-xs text-muted">Demo accounts · virtual credits</p>
       </div>
     </div>
   );
 }
 
 function AccountPicker({ role, onPick }: { role: Role; onPick: (id: string) => void }) {
+  const [credentialUser, setCredentialUser] = useState<User | null>(null);
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [loginError, setLoginError] = useState("");
+  const [busy, setBusy] = useState(false);
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const { data: users = [] } = useUsers();
   // Market-maker bots seed liquidity; they are not demo personas.
   const accounts = users.filter((u) => u.role === role && !u.id.startsWith("MM_"));
-  const matching = accounts.filter((u) => `${u.id} ${u.display_name}`.toLowerCase().includes(search.toLowerCase()));
+  const matching = accounts.filter((u) => `${u.id} ${u.display_name} ${u.username ?? ""}`.toLowerCase().includes(search.toLowerCase()));
   return (
     <div className="mt-6 border-t border-line pt-5">
       <div className="card-title mb-3">Continue as</div>
@@ -82,13 +88,24 @@ function AccountPicker({ role, onPick }: { role: Role; onPick: (id: string) => v
           <button
             key={u.id}
             type="button"
-            onClick={() => onPick(u.id)}
+            onClick={() => { if (u.has_password) { setCredentialUser(u); setUsername(u.username ?? u.id); setPassword(""); setLoginError(""); } else onPick(u.id); }}
             className="btn border border-line bg-surface px-4 py-2 text-ink hover:border-brand hover:bg-brand-soft"
           >
             {u.display_name}
           </button>
         ))}
       </div>
+      {credentialUser && <form className="mt-4 space-y-3 rounded-xl bg-sunken p-4" onSubmit={async (e) => {
+        e.preventDefault(); setBusy(true); setLoginError("");
+        try { const result = await api.account.login({ username, password });
+          if (result.role !== role) throw new Error("Select the matching role for this account."); onPick(result.user_id);
+        } catch (error) { setLoginError((error as Error).message); } finally { setBusy(false); }
+      }}><p className="text-sm font-semibold text-ink">Sign in as {credentialUser.display_name}</p>
+        <label className="block text-xs text-muted">Account ID<input className="input mt-1" autoComplete="username" value={username} onChange={(e) => setUsername(e.target.value)} /></label>
+        <label className="block text-xs text-muted">Password<input type="password" className="input mt-1" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} /></label>
+        <button type="submit" className="btn bg-brand text-white" disabled={busy || !password}>{busy ? "Signing in…" : "Sign in"}</button>
+        {loginError && <p className="text-sm text-no">{loginError}</p>}
+      </form>}
       {matching.length === 0 && <p className="text-sm text-muted">No accounts found.</p>}
       {matching.length > 20 && <div className="mt-3 flex items-center justify-between text-xs text-muted">
         <button type="button" className="btn" disabled={page === 1} onClick={() => setPage(page - 1)}>Previous</button>

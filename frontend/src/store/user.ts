@@ -29,7 +29,7 @@ function save(value: Pick<Session, "userId" | "role">) {
   }
 }
 
-/** Demo session: no credentials, the user just picks a role and an account. */
+/** Demo session: account selection or credential login stores the user ID and role. */
 export const useSession = create<Session>((set) => ({
   ...load(),
   login: (userId, role) => {
@@ -45,5 +45,5 @@ export const useSession = create<Session>((set) => ({
 export const ROLE_HOME: Record<Role, string> = {
   STUDENT: "/student",
   TRADER: "/markets",
-  ADMIN: "/admin",
+  ADMIN: "/admin/verification",
 };

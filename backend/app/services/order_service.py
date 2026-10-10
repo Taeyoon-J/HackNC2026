@@ -4,7 +4,7 @@ Endpoints run on a single asyncio event loop and this module does no awaiting,
 so each place/cancel call is effectively serialized per process. Each call is
 also exactly one DB transaction (commit at the end, rollback on error).
 """
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from ..db import DomainError, utcnow
@@ -56,6 +56,18 @@ def _place(db, user_id, market_id, contract, action, order_type, price_cents, qu
         raise DomainError("Invalid order")
     if not isinstance(quantity, int) or quantity <= 0:
         raise DomainError("Quantity must be a positive integer")
+    if market.total_supply:
+        if contract != YES:
+            raise DomainError("This market supports YES shares only")
+        if quantity > market.total_supply:
+            raise DomainError(f"This market has only {market.total_supply} issued shares")
+        if action == BUY:
+            held = position(db, user_id, market_id, YES).quantity
+            queued = db.scalar(select(func.coalesce(func.sum(Order.remaining), 0)).where(
+                Order.market_id == market_id, Order.user_id == user_id, Order.contract == YES,
+                Order.action == BUY, Order.status.in_(OPEN_STATUSES)))
+            if quantity + held + queued > market.total_supply:
+                raise DomainError(f"At most {market.total_supply - held - queued} shares are available after your holdings and pending buys")
     if order_type == MARKET:
         # Price-protection bound: a market order is a limit at the widest legal price.
         price_cents = 99 if action == BUY else 1
@@ -120,6 +132,8 @@ def _match(db: Session, market: Market, order: Order, now) -> list[Trade]:
 def _execute(db, market: Market, maker: Order, taker: Order, price: int, qty: int, now) -> Trade:
     bid, ask = (taker, maker) if taker.book_side == BID else (maker, taker)
     ttype = trade_type(bid, ask)
+    if market.total_supply and ttype != "TRANSFER_YES":
+        raise DomainError("Fixed-supply shares can only be transferred; new shares cannot be minted")
     trade = Trade(market_id=market.id, maker_order_id=maker.id, taker_order_id=taker.id,
                   trade_type=ttype, taker_side=taker.book_side, yes_price_cents=price,
                   quantity=qty, executed_at=now)

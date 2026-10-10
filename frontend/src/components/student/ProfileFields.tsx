@@ -3,7 +3,7 @@ import type { ProfileInput } from "../../api/client";
 export const YEARS = ["Freshman", "Sophomore", "Junior", "Senior", "Graduate"];
 export const emptyProfile: ProfileInput = { university: "", year: "Freshman", major: "", introduction: "", pitch: "" };
 
-export function ProfileFields({ value, onChange }: { value: ProfileInput; onChange: (v: ProfileInput) => void }) {
+export function ProfileFields({ value, onChange, fixed = false }: { value: ProfileInput; onChange: (v: ProfileInput) => void; fixed?: boolean }) {
   return (
     <div className="grid gap-3 sm:grid-cols-3">
       <label className="block text-xs text-muted">
@@ -11,13 +11,14 @@ export function ProfileFields({ value, onChange }: { value: ProfileInput; onChan
         <input
           className="input mt-1"
           value={value.university}
+          disabled={fixed}
           placeholder="UNC Chapel Hill"
           onChange={(e) => onChange({ ...value, university: e.target.value })}
         />
       </label>
       <label className="block text-xs text-muted">
         Year
-        <select className="input mt-1" value={value.year} onChange={(e) => onChange({ ...value, year: e.target.value })}>
+        <select className="input mt-1" disabled={fixed} value={value.year} onChange={(e) => onChange({ ...value, year: e.target.value })}>
           {YEARS.map((y) => (
             <option key={y}>{y}</option>
           ))}
@@ -28,6 +29,7 @@ export function ProfileFields({ value, onChange }: { value: ProfileInput; onChan
         <input
           className="input mt-1"
           value={value.major}
+          disabled={fixed}
           placeholder="Computer Science"
           onChange={(e) => onChange({ ...value, major: e.target.value })}
         />
