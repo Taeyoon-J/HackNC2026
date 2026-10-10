@@ -77,9 +77,10 @@ def activate(db, student):
         raise DomainError("The submitted semester has ended; register with a current semester")
     threshold = (secrets.randbelow(21) + 20) / 10
     probability = secrets.randbelow(61) + 20
+    initial_scholarship = (secrets.randbelow(20_001) + 30_000) * 100
     name = db.get(User, student.user_id).display_name
     market = Market(id=f"{student.id}-GPA-{term.replace(' ', '')}", student_id=student.id,
-        threshold=threshold, term=term, deadline=deadline, status="TRADING", last_price_cents=probability,
+        threshold=threshold, term=term, deadline=deadline, status="TRADING",
         question=f"Will {name} earn a {term} GPA of {threshold} or higher?")
     student.status, student.verified = "ACTIVE", True
     db.get(User, student.user_id).status = "ACTIVE"
@@ -87,8 +88,34 @@ def activate(db, student):
         disclosure.verified_at = utcnow()
     db.add(market)
     db.flush()
-    fixed_market_service.initialize_market(db, market)
+    fixed_market_service.initialize_market(db, market, initial_scholarship_cents=initial_scholarship,
+                                           probability_percent=probability)
     db.flush()
     if market.total_supply:
         fixed_market_service.quote_market(db, market)
     return market
+
+
+def repair_untouched_legacy_registrations(db):
+    """Correct accounts activated by the old demo defaults if no trader touched them."""
+    from ..models import Order, Position
+    markets = db.scalars(select(Market).join(Student, Student.id == Market.student_id).where(
+        Student.id.like("STU\\_%", escape="\\"), Student.status == "ACTIVE",
+        Market.status == "TRADING", Market.total_supply == 100, Market.volume == 0,
+        Market.initial_scholarship_cents.between(100_000, 200_000))).all()
+    repaired = 0
+    for market in markets:
+        human_order = db.scalar(select(Order.id).where(Order.market_id == market.id,
+            ~Order.user_id.startswith("MM_"), Order.status.in_(("OPEN", "PARTIAL"))).limit(1))
+        human_position = db.scalar(select(Position.user_id).where(Position.market_id == market.id,
+            ~Position.user_id.startswith("MM_"), Position.quantity > 0).limit(1))
+        if human_order or human_position:
+            continue
+        percent = max(20, min(80, market.initial_price_cents or market.last_price_cents or 50))
+        scholarship_cents = (secrets.randbelow(20_001) + 30_000) * 100
+        fixed_market_service.repair_registered_market(db, market, scholarship_cents=scholarship_cents,
+                                                       probability_percent=percent)
+        repaired += 1
+    if repaired:
+        db.commit()
+    return repaired

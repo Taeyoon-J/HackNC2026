@@ -6,6 +6,7 @@ import { dateShort } from "../../lib/format";
 import { TranscriptEditor } from "./TranscriptEditor";
 
 type Row = Record<string, string>;
+type EditableDisclosureType = Exclude<DisclosureType, "COURSE_PROGRESS">;
 
 interface Column {
   key: string;
@@ -25,7 +26,7 @@ interface Spec {
 
 const num = (v: string) => (v.trim() === "" ? 0 : Number(v));
 
-const SPECS: Record<DisclosureType, Spec> = {
+const SPECS: Record<EditableDisclosureType, Spec> = {
   BIOGRAPHY: {
     title: "About me & personal statement", hint: "Self-reported profile text.",
     columns: [{ key: "introduction", label: "Introduction" }, { key: "pitch", label: "Personal statement" }],
@@ -73,13 +74,13 @@ const SPECS: Record<DisclosureType, Spec> = {
   },
 };
 
-export function RecordEditor({ type, disclosure, pending }: { type: DisclosureType; disclosure?: Disclosure; pending?: Verification }) {
+export function RecordEditor({ type, disclosure, pending }: { type: EditableDisclosureType; disclosure?: Disclosure; pending?: Verification }) {
   if (type === "GPA_HISTORY") return <TranscriptEditor disclosure={disclosure} />;
   return <SimpleRecordEditor type={type} disclosure={disclosure} pending={pending} />;
 }
 
 /** Edits are sent to the admin queue; until approved the editor shows the pending version. */
-function SimpleRecordEditor({ type, disclosure, pending }: { type: DisclosureType; disclosure?: Disclosure; pending?: Verification }) {
+function SimpleRecordEditor({ type, disclosure, pending }: { type: EditableDisclosureType; disclosure?: Disclosure; pending?: Verification }) {
   const spec = SPECS[type];
   const source = pending?.payload.data ?? disclosure?.data;
   const [rows, setRows] = useState<Row[]>(() => spec.toRows(source));

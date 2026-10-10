@@ -146,6 +146,7 @@ def populate_cohort(db, now):
         if sid not in market_students:
             target = round(min(4.0, max(2.5, (records["GPA_HISTORY"]["terms"][-1]["gpa"] if records["GPA_HISTORY"]["terms"] else 3.3) + 0.15)), 1)
             db.add(Market(id=f"{sid}-GPA-2026F", student_id=sid, threshold=target, term="Fall 2026",
+                          initial_price_cents=random.Random(sid).randint(25, 80),
                           deadline=datetime(2026, 12, 20, 23, 59), status="PRICE_DISCOVERY" if s.verified else "DRAFT",
                           question=f"Will Student {n} earn a Fall 2026 GPA of {target} or higher?"))
     db.commit()
@@ -172,7 +173,7 @@ def resize_cohort(db, now):
         for market in markets:
             order_service.cancel_all_open(db, market.id)
             for p in db.scalars(select(Position).where(Position.market_id == market.id, Position.quantity > 0)).all():
-                if p.user_id not in removed_users and not p.user_id.startswith("MM_"):
+                if p.user_id not in removed_users and p.user_id != "ADMIN" and not p.user_id.startswith("MM_"):
                     mark = market.last_price_cents if market.last_price_cents is not None else 50
                     refund = p.quantity * (mark if p.contract == "YES" else 100 - mark)
                     ledger.post(db, [(ledger.TREASURY, -refund), (ledger.user_account(p.user_id), refund)], "COHORT_HOLDING_REDEMPTION", now=now)

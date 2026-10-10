@@ -14,13 +14,13 @@ export function StudentProfileCard({ studentId, threshold, admin = false }: { st
   if (!s) return <div className="card h-64 animate-pulse" />;
   return (
     <div className="card p-5">
-      <div className="mb-4 flex items-center gap-3">
-        <div className="grid h-11 w-11 place-items-center rounded-full bg-brand-soft font-display text-lg font-semibold text-brand">
+      <div className="mb-4 flex min-w-0 items-center gap-3">
+        <div className="grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-full bg-brand-soft px-1 text-center font-display text-xs font-semibold leading-tight text-brand" style={{ flex: "0 0 2.75rem", maxWidth: "2.75rem", whiteSpace: "nowrap" }} aria-hidden="true">
           {s.name.replace("Student ", "").slice(0, 2).toUpperCase()}
         </div>
-        <div>
-          <div className="flex items-center gap-2 font-semibold text-ink">
-            {s.name}
+        <div className="min-w-0 flex-1">
+          <div className="flex min-w-0 flex-wrap items-center gap-2 font-semibold text-ink">
+            <span title={s.name} className="max-w-full truncate">{s.name}</span>
             {s.verified && <span className="rounded-full bg-brand-soft px-2 py-0.5 text-[10px] font-semibold text-brand">ID verified</span>}
           </div>
           <div className="text-xs text-muted">

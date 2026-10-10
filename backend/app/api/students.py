@@ -30,7 +30,7 @@ async def get_student(student_id: str, db: Session = Depends(get_db)):
         raise DomainError("Student not found", 404)
     disclosures = db.scalars(select(Disclosure).where(Disclosure.student_id == s.id,
                                                       Disclosure.visibility == "PUBLIC",
-                                                      Disclosure.verified_at.is_not(None))
+                                                      (Disclosure.verified_at.is_not(None) | (Disclosure.type == "COURSE_PROGRESS")))
                              .order_by(Disclosure.id)).all()
     markets = db.scalars(select(Market).where(Market.student_id == s.id, Market.status != "DRAFT")).all()
     return {

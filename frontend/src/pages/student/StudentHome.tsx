@@ -6,10 +6,11 @@ import { GoalCard } from "../../components/student/GoalCard";
 import { ProfileFields, emptyProfile } from "../../components/student/ProfileFields";
 import { RecordEditor } from "../../components/student/RecordEditor";
 import { DisclosureList } from "../../components/student/DisclosureList";
+import { CourseProgressEditor } from "../../components/student/CourseProgressEditor";
 import { useAction, useMyStudent, useMyVerifications } from "../../hooks/queries";
 import { usd } from "../../lib/format";
 
-const RECORDS: DisclosureType[] = ["GPA_HISTORY", "COURSE_LOAD", "ACTIVITY", "APPLICATION"];
+const RECORDS: Exclude<DisclosureType, "COURSE_PROGRESS">[] = ["GPA_HISTORY", "COURSE_LOAD", "ACTIVITY", "APPLICATION"];
 
 export function StudentHome() {
   const { data: me, error } = useMyStudent();
@@ -86,6 +87,10 @@ export function StudentHome() {
               <p className="mt-3 text-xs text-muted">{t === "GPA_HISTORY" ? "Approved past grades are read-only. Expand a semester to view course codes and grades." : "Course-load changes and grades require approval in Settings."}</p>
             </section> : <RecordEditor key={t} type={t} disclosure={me.disclosures.find((d) => d.type === t)} pending={pendingOf(t)} />
           ))}
+          {me.verified && <CourseProgressEditor
+            courses={me.disclosures.find((d) => d.type === "COURSE_LOAD")?.data.courses ?? []}
+            disclosure={me.disclosures.find((d) => d.type === "COURSE_PROGRESS")}
+          />}
         </div>
 
         <div className="lg:sticky lg:top-24 lg:self-start">

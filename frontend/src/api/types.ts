@@ -48,6 +48,8 @@ export interface Market {
   probability: number | null;
   id: string;
   total_supply: number;
+  public_float: number;
+  admin_reserve_shares: number;
   initial_scholarship_cents: number;
   final_price: number | null;
   question: string;
@@ -59,6 +61,7 @@ export interface Market {
   outcome: Contract | null;
   resolved_value: number | null;
   last_price: number | null;
+  initial_price: number | null;
   volume: number;
   student: StudentBrief;
   scholarship: Scholarship | null;
@@ -69,6 +72,7 @@ export interface Market {
   trades_24h: number;
   volume_24h: number;
   change_24h: number | null;
+  sparkline?: HistoryPoint[];
   minted_pairs?: number;
   collateral_cents?: number;
 }
@@ -161,7 +165,7 @@ export interface Portfolio {
   settlements: SettlementRow[];
 }
 
-export type DisclosureType = "GPA_HISTORY" | "COURSE_LOAD" | "ACTIVITY" | "APPLICATION" | "BIOGRAPHY";
+export type DisclosureType = "GPA_HISTORY" | "COURSE_LOAD" | "COURSE_PROGRESS" | "ACTIVITY" | "APPLICATION" | "BIOGRAPHY";
 
 export interface Disclosure {
   id: number;

@@ -127,6 +127,7 @@ def seed(db, now: datetime) -> None:
     for mid, sid, threshold, term, deadline, p0, p1, target, resolved in MARKETS:
         student_name = next(s[2] for s in STUDENTS if s[0] == sid).split(" · ")[0]
         db.add(Market(id=mid, student_id=sid, threshold=threshold, term=term, deadline=deadline,
+                      initial_price_cents=p0,
                       question=f"Will {student_name} earn a {term} GPA of {threshold} or higher?",
                       status="PRICE_DISCOVERY", created_at=now - timedelta(days=4)))
         db.commit()

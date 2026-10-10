@@ -34,6 +34,23 @@ class GoalRequest(BaseModel):
     term: str
 
 
+class Assessment(BaseModel):
+    title: str = Field(min_length=1, max_length=100)
+    category: str = Field(default="Assignment", max_length=30)
+    earned: float = Field(ge=0, le=10000)
+    possible: float = Field(gt=0, le=10000)
+    date: str | None = Field(default=None, max_length=20)
+
+
+class CourseProgressCourse(BaseModel):
+    code: str = Field(min_length=1, max_length=30)
+    assessments: list[Assessment] = Field(max_length=40)
+
+
+class CourseProgressRequest(BaseModel):
+    courses: list[CourseProgressCourse] = Field(max_length=30)
+
+
 def _profile(db: Session, user: User) -> dict:
     s = student_service.student_for_user(db, user.id)
     disclosures = db.scalars(select(Disclosure).where(Disclosure.student_id == s.id).order_by(Disclosure.id)).all()
@@ -79,6 +96,34 @@ async def upsert_disclosure(dtype: str, req: DisclosureRequest, user: User = Dep
         raise DomainError("Academic records are read-only. Submit course-load or final-GPA verification in Settings.", 403)
     r = verification_service.submit(db, s, dtype, {"data": req.data}, "")
     await manager.broadcast("VERIFICATION_UPDATED", ALL, {"id": r.id})
+    return _profile(db, user)
+
+
+@router.put("/student/course-progress")
+async def save_course_progress(req: CourseProgressRequest, user: User = Depends(current_user),
+                               db: Session = Depends(get_db)):
+    s = student_service.student_for_user(db, user.id)
+    load = db.scalar(select(Disclosure).where(Disclosure.student_id == s.id,
+                                              Disclosure.type == "COURSE_LOAD"))
+    if not s.verified or load is None or not load.verified_at:
+        raise DomainError("Course progress is available after your course load is verified", 403)
+    expected = {c["code"] for c in load.data.get("courses", [])}
+    actual = [c.code for c in req.courses]
+    if len(set(actual)) != len(actual) or set(actual) != expected:
+        raise DomainError("Progress must match the verified courses in your current course load")
+    data = {"term": load.data.get("term", ""), "courses": [c.model_dump() for c in req.courses]}
+    disclosure = db.scalar(select(Disclosure).where(Disclosure.student_id == s.id,
+                                                   Disclosure.type == "COURSE_PROGRESS"))
+    if disclosure is None:
+        disclosure = Disclosure(student_id=s.id, type="COURSE_PROGRESS", title="Current semester progress",
+                                 data=data, visibility="PUBLIC", verified_at=None)
+        db.add(disclosure)
+    else:
+        disclosure.data = data
+        disclosure.visibility = "PUBLIC"
+        disclosure.verified_at = None
+    db.commit()
+    await manager.broadcast("STUDENT_UPDATED", ALL, {"student_id": s.id})
     return _profile(db, user)
 
 

@@ -3,7 +3,7 @@ from fastapi import Query
 from sqlalchemy import String, cast, func, or_, select
 
 from collections import defaultdict
-from datetime import timedelta
+from datetime import timedelta, timezone
 import re
 
 from ..db import utcnow
@@ -23,7 +23,7 @@ def prefetch_page(db, rows, markets):
     if not markets:
         pending = defaultdict(int)
         for d in disclosures:
-            if d.type != "BIOGRAPHY" and d.verified_at is None:
+            if d.type not in ("BIOGRAPHY", "COURSE_PROGRESS") and d.verified_at is None:
                 pending[d.student_id] += 1
         goals = defaultdict(list)
         for m in db.scalars(select(Market).where(Market.student_id.in_(student_ids)).order_by(Market.created_at)).all():
@@ -39,6 +39,7 @@ def prefetch_page(db, rows, markets):
     for trade in db.scalars(select(Trade).where(Trade.market_id.in_(ids)).order_by(Trade.executed_at, Trade.id)).all():
         trades[trade.market_id].append(trade)
     stats = {}
+    sparklines = {}
     for m in rows:
         bid = max((o.yes_price_cents for o in books[m.id] if o.book_side == "BID"), default=None)
         ask = min((o.yes_price_cents for o in books[m.id] if o.book_side == "ASK"), default=None)
@@ -49,7 +50,10 @@ def prefetch_page(db, rows, markets):
                        "vwap_24h": round(sum(t.quantity * t.yes_price_cents for t in recent) / volume, 2) if volume else None,
                        "trades_24h": len(recent), "volume_24h": volume,
                        "change_24h": m.last_price_cents - prev if m.last_price_cents is not None and prev is not None else None}
+        sparklines[m.id] = [{"t": int(t.executed_at.replace(tzinfo=timezone.utc).timestamp()), "price": t.yes_price_cents, "quantity": t.quantity}
+                            for t in trades[m.id][-16:]]
     db.info["directory_stats"] = stats
+    db.info["directory_sparklines"] = sparklines
 
 
 class DirectoryParams:
@@ -80,7 +84,7 @@ def directory_page(db, stmt, params, serialize, *, markets=False, admin=False):
             func.lower(cast(Disclosure.data, String)).contains(token, autoescape=True))
         if not admin:
             disclosure_match = disclosure_match.where(Disclosure.visibility == "PUBLIC",
-                or_(Disclosure.verified_at.is_not(None), Disclosure.type == "BIOGRAPHY"))
+                or_(Disclosure.verified_at.is_not(None), Disclosure.type.in_(("BIOGRAPHY", "COURSE_PROGRESS"))))
         filtered = filtered.where(or_(*[func.lower(f).contains(token, autoescape=True) for f in fields],
                                        disclosure_match.exists()))
     if params.university:
@@ -92,7 +96,7 @@ def directory_page(db, stmt, params, serialize, *, markets=False, admin=False):
             filtered = filtered.where(Market.status == params.state)
         elif params.state == "REVIEW":
             pending = select(Disclosure.id).where(Disclosure.student_id == Student.id,
-                Disclosure.type != "BIOGRAPHY", Disclosure.verified_at.is_(None)).exists()
+                Disclosure.type.notin_(("BIOGRAPHY", "COURSE_PROGRESS")), Disclosure.verified_at.is_(None)).exists()
             filtered = filtered.where(or_(Student.verified.is_(False), pending))
         else:
             filtered = filtered.where(Student.status == params.state)
@@ -110,7 +114,7 @@ def directory_page(db, stmt, params, serialize, *, markets=False, admin=False):
     else:
         eligible = Student.id.in_(base.with_only_columns(Student.id))
         pending = select(Disclosure.id).where(Disclosure.student_id == Student.id,
-            Disclosure.type != "BIOGRAPHY", Disclosure.verified_at.is_(None)).exists()
+            Disclosure.type.notin_(("BIOGRAPHY", "COURSE_PROGRESS")), Disclosure.verified_at.is_(None)).exists()
         summary = {"needs_review": db.scalar(select(func.count(Student.id)).where(eligible, or_(Student.verified.is_(False), pending))),
                    "delisted": db.scalar(select(func.count(Student.id)).where(eligible, Student.status == "DELISTED"))}
     return {"items": [serialize(db, row) for row in rows], "total": total, "total_all": total_all,

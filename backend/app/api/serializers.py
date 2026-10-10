@@ -38,14 +38,18 @@ def market(db: Session, m: Market, detail: bool = False) -> dict:
     out = {
         "id": m.id, "question": m.question, "metric": m.metric, "term": m.term,
         "total_supply": m.total_supply, "initial_scholarship_cents": m.initial_scholarship_cents,
+        "public_float": max(0, m.total_supply - m.admin_reserve_shares),
+        "admin_reserve_shares": m.admin_reserve_shares,
         "final_price": m.final_price_cents,
         "share_value_cents": m.share_value_cents,
         "probability": m.probability_bp / 10000 if m.probability_bp else None,
         "threshold": m.threshold, "deadline": iso(m.deadline), "status": m.status,
         "outcome": m.outcome, "resolved_value": m.resolved_value,
         "last_price": m.last_price_cents, "volume": m.volume,
+        "initial_price": m.initial_price_cents,
         "student": student_brief(db, db.info.get("directory_students", {}).get(m.student_id) or db.get(Student, m.student_id)),
         "scholarship": scholarship(s),
+        "sparkline": db.info.get("directory_sparklines", {}).get(m.id, []),
         **(db.info["directory_stats"][m.id] if "directory_stats" in db.info else market_service.stats(db, m)),
     }
     if detail:

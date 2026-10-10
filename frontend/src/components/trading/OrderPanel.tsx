@@ -14,7 +14,8 @@ export function OrderPanel({ market, price, onPriceChange }: Props) {
   const contract = "YES";
   const [action, setAction] = useState<Action>("BUY");
   const [orderType, setOrderType] = useState<OrderType>("LIMIT");
-  const [quantity, setQuantity] = useState(10);
+  const [quantityInput, setQuantityInput] = useState("10");
+  const quantity = Number(quantityInput) || 0;
   const [result, setResult] = useState<OrderResult | null>(null);
   const { data: portfolio } = usePortfolio();
   const place = useAction(api.placeOrder);
@@ -35,7 +36,9 @@ export function OrderPanel({ market, price, onPriceChange }: Props) {
   const clampPrice = (p: number) => Math.min(ceiling, Math.max(1, Math.round(p)));
   const effPrice = orderType === "MARKET" ? (action === "BUY" ? ceiling : 1) : price;
   const total = effPrice * quantity;
-  const disabledReason = !isTrader
+  const disabledReason = !quantity || !Number.isInteger(quantity) || quantity < 1
+    ? "Enter a whole number of shares"
+    : !isTrader
     ? "Only traders can place orders"
     : !tradable
       ? "Market is not open for trading"
@@ -99,12 +102,12 @@ export function OrderPanel({ market, price, onPriceChange }: Props) {
         )}
         <Field label="Quantity (shares)" hint={`${action === "SELL" ? sellable : buyCapacity} available`}>
           <input
-            type="number"
-            min={1}
-            max={action === "SELL" ? sellable : buyCapacity}
+            type="text"
+            inputMode="numeric"
+            pattern="[0-9]*"
             className="input num"
-            value={quantity}
-            onChange={(e) => setQuantity(Math.max(1, Math.floor(Number(e.target.value) || 1)))}
+            value={quantityInput}
+            onChange={(e) => setQuantityInput(e.target.value.replace(/\D/g, ""))}
           />
         </Field>
       </div>

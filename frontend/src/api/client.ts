@@ -100,6 +100,8 @@ export const api = {
     updateProfile: (p: ProfileInput) => request<MyStudent>("PUT", "/api/me/student", p),
     saveDisclosure: ({ type, data }: { type: DisclosureType; data: unknown }) =>
       request<MyStudent>("PUT", `/api/me/student/disclosures/${type}`, { data }),
+    saveCourseProgress: (input: { courses: { code: string; assessments: { title: string; category: string; earned: number; possible: number; date?: string }[] }[] }) =>
+      request<MyStudent>("PUT", "/api/me/student/course-progress", input),
   },
   portfolio: () => request<Portfolio>("GET", "/api/portfolio"),
   placeOrder: (o: NewOrder) => request<OrderResult>("POST", "/api/orders", o),

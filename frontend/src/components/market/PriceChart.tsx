@@ -50,7 +50,7 @@ export function PriceChart({ points, max = 100 }: { points: HistoryPoint[]; /** 
     </div>
     <div ref={box} className="touch-none select-none" style={{ cursor: "grab" }}
       onPointerDown={(e) => { dragging.current = { x: e.clientX, end: boundedEnd }; e.currentTarget.setPointerCapture(e.pointerId); }}
-      onPointerMove={(e) => { if (dragging.current) setEnd(clamp(dragging.current.end - (e.clientX - dragging.current.x) / Math.max(1, e.currentTarget.clientWidth) * span, Math.min(oldest + span, now), now)); }}
+      onPointerMove={(e) => { if (dragging.current) setEnd(clamp(dragging.current.end - (e.clientX - dragging.current.x) / Math.max(1, e.currentTarget.clientWidth) * span * 0.35, Math.min(oldest + span, now), now)); }}
       onPointerUp={() => { dragging.current = null; }} onPointerCancel={() => { dragging.current = null; }}>
       <svg viewBox="0 0 700 280" className="w-full" role="img" aria-label={`YES price chart with ${step} aggregation; future dates are blocked`}>
         {[0, 0.25, 0.5, 0.75, 1].map((f) => <g key={f}><line x1={45} x2={655} y1={y(f * max)} y2={y(f * max)} stroke="#e8e1d6" /><text x={5} y={y(f * max) + 4} fill="#6b7280" fontSize={11}>{max > 100 ? `$${Math.round(f * max / 100)}` : fmtPrice(f * max)}</text></g>)}

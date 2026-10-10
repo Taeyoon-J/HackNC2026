@@ -12,7 +12,8 @@ export function DisclosureList({ disclosures, threshold }: { disclosures: Disclo
             {d.verified_at && (
               <span className="shrink-0 whitespace-nowrap text-[10px] text-yes">✓ Verified {dateShort(d.verified_at)}</span>
             )}
-            {!d.verified_at && <span className="text-[10px] text-gold">Pending verification</span>}
+            {!d.verified_at && d.type === "COURSE_PROGRESS" && <span className="text-[10px] text-gold">Student reported</span>}
+            {!d.verified_at && d.type !== "COURSE_PROGRESS" && <span className="text-[10px] text-gold">Pending verification</span>}
           </div>
           <DisclosureBody d={d} threshold={threshold} />
         </section>
@@ -57,6 +58,17 @@ function DisclosureBody({ d, threshold }: { d: Disclosure; threshold?: number })
         </ul>
       );
     }
+    case "COURSE_PROGRESS":
+      return <div className="space-y-3">
+        <p className="text-xs text-muted">{d.data.term} · self-reported results for the current semester</p>
+        {d.data.courses.map((course: any) => <div key={course.code} className="rounded-lg border border-line p-3">
+          <h4 className="text-xs font-semibold text-ink"><span className="font-mono text-muted">{course.code}</span></h4>
+          {course.assessments.length ? <ul className="mt-2 divide-y divide-line text-xs">{course.assessments.map((a: any, i: number) => <li key={`${a.title}-${i}`} className="flex flex-wrap items-center justify-between gap-2 py-1.5">
+            <span className="text-body">{a.title} <span className="text-muted">· {a.category}{a.date ? ` · ${a.date}` : ""}</span></span>
+            <span className="num font-semibold text-ink">{a.earned}/{a.possible} ({Math.round(a.earned / a.possible * 100)}%)</span>
+          </li>)}</ul> : <p className="mt-2 text-xs text-muted">No assessment results posted yet.</p>}
+        </div>)}
+      </div>;
     case "ACTIVITY":
       return (
         <ul className="list-inside list-disc space-y-1 text-xs text-body">

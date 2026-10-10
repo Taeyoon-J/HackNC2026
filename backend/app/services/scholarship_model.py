@@ -130,6 +130,7 @@ def _relist(db, market, goal, probability, now):
 
     # 3. Trades since August 1, starting at the opening price, then a deep current book.
     opening = round(market.share_value_cents * probability)
+    market.initial_price_cents = opening
     last = _history(db, rng, market, opening, probability, now)
     _book(db, rng, market, last, now)
 

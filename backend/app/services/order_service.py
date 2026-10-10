@@ -41,7 +41,7 @@ def place_order(db: Session, user_id: str, market_id: str, contract: str, action
         raise
 
 
-def _place(db, user_id, market_id, contract, action, order_type, price_cents, quantity, now):
+def _place(db, user_id, market_id, contract, action, order_type, price_cents, quantity, now, admin_backed=False):
     user = db.get(User, user_id)
     if user is None or user.role != "TRADER":
         raise DomainError("Only traders can place orders", 403)
@@ -89,7 +89,7 @@ def _place(db, user_id, market_id, contract, action, order_type, price_cents, qu
     order = Order(market_id=market_id, user_id=user_id, contract=contract, action=action,
                   order_type=order_type, price_cents=price_cents, book_side=side,
                   yes_price_cents=yes_price, quantity=quantity, remaining=quantity,
-                  status="OPEN", created_at=now)
+                  status="OPEN", created_at=now, admin_backed=admin_backed)
     db.add(order)
     db.flush()
 
@@ -164,6 +164,22 @@ def _execute(db, market: Market, maker: Order, taker: Order, price: int, qty: in
         o.remaining -= qty
         o.status = "FILLED" if o.remaining == 0 else "PARTIAL"
 
+    for o in (bid, ask):
+        if not o.admin_backed:
+            continue
+        if o.action == SELL:
+            market.admin_reserve_shares = max(0, market.admin_reserve_shares - qty)
+        elif o.action == BUY:
+            # Automated buy fills are swept into the tracked admin reserve.
+            buyer = position(db, o.user_id, market.id, "YES")
+            treasury = position(db, "ADMIN", market.id, "YES")
+            moved_cost = buyer.cost_basis_cents * qty // buyer.quantity if buyer.quantity else 0
+            buyer.quantity -= qty
+            buyer.cost_basis_cents -= moved_cost
+            treasury.quantity += qty
+            treasury.cost_basis_cents += moved_cost
+            market.admin_reserve_shares += qty
+
     if ttype == "MINT":
         entries.append((ledger.collateral_account(market.id), 100 * qty))
         market.minted_pairs += qty
@@ -198,6 +214,7 @@ def cancel_order(db: Session, user_id: str, order_id: int) -> Order:
     if order.status not in OPEN_STATUSES:
         raise DomainError(f"Cannot cancel an order that is {order.status}")
     _release(db, order)
+    _return_admin_backed_inventory(db, order)
     order.status = "CANCELLED"
     db.commit()
     return order
@@ -209,5 +226,19 @@ def cancel_all_open(db: Session, market_id: str) -> int:
                                             Order.status.in_(OPEN_STATUSES))).all()
     for o in orders:
         _release(db, o)
+        _return_admin_backed_inventory(db, o)
         o.status = "CANCELLED"
     return len(orders)
+
+
+def _return_admin_backed_inventory(db: Session, order: Order) -> None:
+    if not order.admin_backed or order.action != SELL or order.remaining <= 0:
+        return
+    issuer = position(db, order.user_id, order.market_id, "YES")
+    treasury = position(db, "ADMIN", order.market_id, "YES")
+    qty = order.remaining
+    moved_cost = issuer.cost_basis_cents * qty // issuer.quantity if issuer.quantity else 0
+    issuer.quantity -= qty
+    issuer.cost_basis_cents -= moved_cost
+    treasury.quantity += qty
+    treasury.cost_basis_cents += moved_cost

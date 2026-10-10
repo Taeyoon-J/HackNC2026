@@ -1,4 +1,6 @@
 from contextlib import asynccontextmanager
+import asyncio
+import logging
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
@@ -15,7 +17,30 @@ async def lifespan(_: FastAPI):
     ensure_schema()
     if not is_seeded():
         reset_and_seed()
-    yield
+    task = asyncio.create_task(_liquidity_scheduler())
+    try:
+        yield
+    finally:
+        task.cancel()
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
+
+
+async def _liquidity_scheduler():
+    from .db import SessionLocal
+    from .services.fixed_market_service import run_stale_market_liquidity
+    while True:
+        await asyncio.sleep(60)
+        db = SessionLocal()
+        try:
+            run_stale_market_liquidity(db)
+        except Exception:
+            db.rollback()
+            logging.getLogger(__name__).exception("Automatic stale-market liquidity update failed")
+        finally:
+            db.close()
 
 
 app = FastAPI(title="Student Performance Exchange", lifespan=lifespan)

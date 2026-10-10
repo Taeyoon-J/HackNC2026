@@ -67,10 +67,13 @@ class Market(Base):
     total_supply: Mapped[int] = mapped_column(default=0)
     initial_scholarship_cents: Mapped[int] = mapped_column(default=0)
     final_price_cents: Mapped[Optional[int]] = mapped_column(nullable=True)
+    initial_price_cents: Mapped[Optional[int]] = mapped_column(nullable=True)
     # Value of one YES share if the goal is met; also the price ceiling. Legacy markets: $1.
     share_value_cents: Mapped[int] = mapped_column(default=100)
     # Fixed goal probability for the scholarship formula (basis points); None = legacy formula.
     probability_bp: Mapped[Optional[int]] = mapped_column(nullable=True)
+    admin_reserve_shares: Mapped[int] = mapped_column(default=0)
+    last_auto_quote_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
 
 
 class Order(Base):
@@ -87,6 +90,7 @@ class Order(Base):
     quantity: Mapped[int]
     remaining: Mapped[int]
     status: Mapped[str]  # OPEN | PARTIAL | FILLED | CANCELLED
+    admin_backed: Mapped[bool] = mapped_column(default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
     __table_args__ = (

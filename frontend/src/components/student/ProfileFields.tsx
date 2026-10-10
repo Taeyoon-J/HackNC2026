@@ -1,4 +1,6 @@
 import type { ProfileInput } from "../../api/client";
+import { SearchableSelect } from "../common/SearchableSelect";
+import { MAJORS, UNIVERSITIES } from "../../lib/academicOptions";
 
 export const YEARS = ["Freshman", "Sophomore", "Junior", "Senior", "Graduate"];
 export const emptyProfile: ProfileInput = { university: "", year: "Freshman", major: "", introduction: "", pitch: "" };
@@ -6,16 +8,8 @@ export const emptyProfile: ProfileInput = { university: "", year: "Freshman", ma
 export function ProfileFields({ value, onChange, fixed = false }: { value: ProfileInput; onChange: (v: ProfileInput) => void; fixed?: boolean }) {
   return (
     <div className="grid gap-3 sm:grid-cols-3">
-      <label className="block text-xs text-muted">
-        University
-        <input
-          className="input mt-1"
-          value={value.university}
-          disabled={fixed}
-          placeholder="UNC Chapel Hill"
-          onChange={(e) => onChange({ ...value, university: e.target.value })}
-        />
-      </label>
+      <SearchableSelect label="University" value={value.university} disabled={fixed} options={UNIVERSITIES}
+        placeholder="Search U.S. universities" onChange={(university) => onChange({ ...value, university })} />
       <label className="block text-xs text-muted">
         Year
         <select className="input mt-1" disabled={fixed} value={value.year} onChange={(e) => onChange({ ...value, year: e.target.value })}>
@@ -24,16 +18,8 @@ export function ProfileFields({ value, onChange, fixed = false }: { value: Profi
           ))}
         </select>
       </label>
-      <label className="block text-xs text-muted">
-        Major
-        <input
-          className="input mt-1"
-          value={value.major}
-          disabled={fixed}
-          placeholder="Computer Science"
-          onChange={(e) => onChange({ ...value, major: e.target.value })}
-        />
-      </label>
+      <SearchableSelect label="Major" value={value.major} disabled={fixed} options={MAJORS}
+        placeholder="Search majors" onChange={(major) => onChange({ ...value, major })} />
       <label className="block text-xs text-muted sm:col-span-3">
         About me
         <textarea className="input mt-1" rows={3} maxLength={4000} value={value.introduction ?? ""}

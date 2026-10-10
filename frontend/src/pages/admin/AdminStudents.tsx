@@ -81,7 +81,7 @@ function Row({ s, busy, onView, onVerify, onDelist, onRestore }: {
     <tr className={`border-b border-line last:border-0 ${delisted ? "bg-sunken/60 text-muted" : ""}`}>
       <td className="px-5 py-3">
         <div className="flex items-center gap-3">
-          <span className="grid h-9 w-9 place-items-center rounded-full bg-brand-soft font-display font-semibold text-brand">
+          <span className="grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-full bg-brand-soft px-1 text-center font-display text-xs font-semibold text-brand" style={{ flex: "0 0 2.25rem", maxWidth: "2.25rem", whiteSpace: "nowrap" }} aria-hidden="true">
             {s.name.replace("Student ", "").slice(0, 2).toUpperCase()}
           </span>
           <div>

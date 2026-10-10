@@ -4,6 +4,9 @@ import { api } from "../../api/client";
 import type { CourseRecord, EvidenceFile, VerificationInput, VerificationType } from "../../api/types";
 import { useAction, useMyStudent, useMyVerifications } from "../../hooks/queries";
 import { SETTINGS_TYPES, VERIFICATION_LABELS, summarize } from "../../lib/verification";
+import { SearchableSelect } from "../../components/common/SearchableSelect";
+import { AcademicTermSelect } from "../../components/common/AcademicTermSelect";
+import { MAJORS, UNIVERSITIES } from "../../lib/academicOptions";
 
 export { VERIFICATION_LABELS };
 
@@ -21,13 +24,13 @@ export function StudentSettings() {
   const [evidence, setEvidence] = useState("");
   const [file, setFile] = useState<EvidenceFile | null>(null);
   const [fileError, setFileError] = useState("");
-  const [term, setTerm] = useState("Fall 2026");
+  const [term, setTerm] = useState("");
   const [courses, setCourses] = useState<CourseRecord[]>([]);
   const load = me?.disclosures.find((d) => d.type === "COURSE_LOAD");
   useEffect(() => { if (account) setUsername(account.username); }, [account?.username]);
   useEffect(() => {
     setCourses((load?.data.courses ?? []).map((c: CourseRecord) => ({ ...c })));
-    setTerm(load?.data.term ?? "Fall 2026");
+    setTerm(load?.data.term ?? "");
   }, [me?.id, type, load?.verified_at]);
   if (!me) return <div className="card h-64 animate-pulse" />;
   const goal = me.markets.find((m) => m.status === "TRADING" || m.status === "CLOSED");
@@ -71,16 +74,17 @@ export function StudentSettings() {
       <label className="block text-xs text-muted">Request type<select className="input mt-1" value={type} onChange={(e) => { setType(e.target.value as VerificationType); submit.reset(); setValue(""); }}>
         {SETTINGS_TYPES.map((key) => <option key={key} value={key}>{VERIFICATION_LABELS[key]}</option>)}
       </select></label>
-      {type === "UNIVERSITY" || type === "MAJOR" ? <label className="block text-xs text-muted">Proposed {type.toLowerCase()} (currently {type === "UNIVERSITY" ? me.university : me.major})
-        <input className="input mt-1" value={value} maxLength={120} onChange={(e) => setValue(e.target.value)} /></label> : <>
+      {type === "UNIVERSITY" || type === "MAJOR" ? <SearchableSelect label={`Proposed ${type.toLowerCase()} (currently ${type === "UNIVERSITY" ? me.university : me.major})`}
+        value={value} options={type === "UNIVERSITY" ? UNIVERSITIES : MAJORS} placeholder={`Search ${type.toLowerCase()}s`}
+        onChange={setValue} /> : <>
         {type === "FINAL_GPA" ? <p className="rounded-xl bg-gold-soft p-3 text-sm text-gold">{goal ? `${goal.term}: approval will close trading, finalize your transcript and pay the scholarship. Calculated GPA: ${finalGpa.toFixed(2)}` : "No active GPA goal available for final verification."}</p>
-          : <label className="block text-xs text-muted">Semester<input className="input mt-1" value={term} onChange={(e) => setTerm(e.target.value)} /></label>}
+          : <AcademicTermSelect value={term} onChange={setTerm} />}
         <div className="space-y-2">{courses.map((c, i) => <div key={i} className="grid gap-2 rounded-xl bg-sunken p-3 sm:grid-cols-[1fr_2fr_80px_90px_auto]">
           {(["code", "name", "credits", "gpa"] as const).map((key) => <label key={key} className="text-[10px] text-muted">{key === "gpa" ? "Grade (0–4)" : key}
-            <input className="input mt-1" type={key === "credits" || key === "gpa" ? "number" : "text"} step={key === "gpa" ? "0.01" : undefined}
+            <input className="input mt-1" type={key === "credits" ? "number" : "text"} inputMode={key === "gpa" ? "decimal" : undefined} pattern={key === "gpa" ? "(?:[0-3](?:\\.\\d*)?|4(?:\\.0*)?)" : undefined}
               min={key === "gpa" ? 0 : key === "credits" ? 1 : undefined} max={key === "gpa" ? 4 : key === "credits" ? 12 : undefined}
               disabled={type === "FINAL_GPA" && key !== "gpa"} value={c[key] ?? ""} placeholder={key === "gpa" ? "Optional" : ""}
-              onChange={(e) => setCourses(courses.map((row, j) => j !== i ? row : { ...row, [key]: key === "gpa" ? (e.target.value === "" ? undefined : Number(e.target.value)) : key === "credits" ? Number(e.target.value) : e.target.value }))} /></label>)}
+              onChange={(e) => setCourses(courses.map((row, j) => j !== i ? row : { ...row, [key]: key === "gpa" ? (e.target.value === "" ? undefined : Number(e.target.value)) : key === "credits" ? (e.target.value === "" ? 0 : Number(e.target.value)) : e.target.value }))} /></label>)}
           {type !== "FINAL_GPA" && <button type="button" className="btn text-no" onClick={() => setCourses(courses.filter((_, j) => j !== i))}>Remove</button>}
         </div>)}</div>
         {type !== "FINAL_GPA" && <button type="button" className="text-sm text-brand" onClick={() => setCourses([...courses, { code: "", name: "", credits: 3 }])}>+ Add course</button>}
