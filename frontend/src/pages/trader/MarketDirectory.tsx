@@ -1,7 +1,6 @@
-import { Link } from "react-router-dom";
-import { MarketCard } from "../components/market/MarketCard";
-import { useMarkets } from "../hooks/queries";
-import { usd } from "../lib/format";
+import { MarketCard } from "../../components/market/MarketCard";
+import { useMarkets } from "../../hooks/queries";
+import { usd } from "../../lib/format";
 
 export function MarketDirectory() {
   const { data: markets = [], isLoading } = useMarkets();
@@ -28,15 +27,6 @@ export function MarketDirectory() {
         </div>
       </section>
 
-      <Link
-        to="/admin"
-        className="flex items-center justify-between rounded-2xl border border-brand/30 bg-surface px-5 py-3 text-sm text-brand hover:bg-brand-soft"
-      >
-        <span>
-          <b>Demo walkthrough</b> — follow Student A from first forecast to scholarship payout
-        </span>
-        <span aria-hidden>→</span>
-      </Link>
 
       <section>
         <h2 className="mb-4 font-display text-xl font-semibold text-ink">Students</h2>

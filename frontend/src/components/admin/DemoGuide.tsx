@@ -1,11 +1,11 @@
 import { Link } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
-import { useUserStore } from "../../store/user";
+import { useSession, type Role } from "../../store/user";
 
 const M = "STU001-GPA-2026F";
 
 const STEPS: { as?: string; text: string; link?: string }[] = [
-  { text: "Review Student A's disclosures and the GPA ≥ 3.8 market", link: `/markets/${M}` },
+  { as: "TRADER_A", text: "Review Student A's disclosures and GPA ≥ 3.8 market", link: `/markets/${M}` },
   { as: "TRADER_A", text: "Limit buy 100 YES @ 60¢ → rests as the best bid", link: `/markets/${M}` },
   { as: "TRADER_B", text: "Buy 100 NO @ 40¢ → matches A, mints 100 pairs (MINT), $100 collateral", link: `/markets/${M}` },
   { as: "TRADER_A", text: "Sell 50 YES @ 61¢", link: `/markets/${M}` },
@@ -18,7 +18,7 @@ const STEPS: { as?: string; text: string; link?: string }[] = [
 const NAMES: Record<string, string> = { TRADER_A: "Trader A", TRADER_B: "Trader B", TRADER_C: "Trader C", ADMIN: "Admin" };
 
 export function DemoGuide() {
-  const { userId, setUserId } = useUserStore();
+  const { userId, login } = useSession();
   const qc = useQueryClient();
   return (
     <div className="card p-5">
@@ -32,7 +32,7 @@ export function DemoGuide() {
                 <button
                   type="button"
                   onClick={() => {
-                    setUserId(s.as!);
+                    login(s.as!, (s.as === "ADMIN" ? "ADMIN" : "TRADER") as Role);
                     qc.invalidateQueries();
                   }}
                   className={`mr-2 rounded px-1.5 py-0.5 text-[11px] font-medium ${

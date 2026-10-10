@@ -1,16 +1,16 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import type { Contract } from "../api/types";
-import { MarketHeader } from "../components/market/MarketHeader";
-import { PriceChart } from "../components/market/PriceChart";
-import { TradeTape } from "../components/market/TradeTape";
-import { StudentProfileCard } from "../components/student/StudentProfileCard";
-import { OpenOrdersTable } from "../components/trading/OpenOrdersTable";
-import { OrderBook } from "../components/trading/OrderBook";
-import { OrderPanel } from "../components/trading/OrderPanel";
-import { useHistory, useMarket, useOrderBook, usePortfolio, useTrades } from "../hooks/queries";
-import { useMarketSocket } from "../hooks/useMarketSocket";
-import { usd } from "../lib/format";
+import type { Contract } from "../../api/types";
+import { MarketHeader } from "../../components/market/MarketHeader";
+import { PriceChart } from "../../components/market/PriceChart";
+import { TradeTape } from "../../components/market/TradeTape";
+import { StudentProfileCard } from "../../components/student/StudentProfileCard";
+import { OpenOrdersTable } from "../../components/trading/OpenOrdersTable";
+import { OrderBook } from "../../components/trading/OrderBook";
+import { OrderPanel } from "../../components/trading/OrderPanel";
+import { useHistory, useMarket, useOrderBook, usePortfolio, useTrades } from "../../hooks/queries";
+import { useMarketSocket } from "../../hooks/useMarketSocket";
+import { usd } from "../../lib/format";
 
 export function MarketPage() {
   const { id = "" } = useParams();

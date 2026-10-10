@@ -31,6 +31,7 @@ class Student(Base):
     year: Mapped[str]
     major: Mapped[str]
     verified: Mapped[bool] = mapped_column(default=False)
+    status: Mapped[str] = mapped_column(default="ACTIVE")  # ACTIVE | DELISTED
 
 
 class Disclosure(Base):

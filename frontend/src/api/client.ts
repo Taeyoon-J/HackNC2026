@@ -1,4 +1,4 @@
-import { useUserStore } from "../store/user";
+import { useSession } from "../store/user";
 import type {
   HistoryPoint,
   InvariantCheck,
@@ -11,6 +11,9 @@ import type {
   StudentProfile,
   Trade,
   User,
+  MyStudent,
+  AdminStudent,
+  DisclosureType,
   Contract,
   Action,
   OrderType,
@@ -23,7 +26,7 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
     method,
     headers: {
       "Content-Type": "application/json",
-      "X-User-Id": useUserStore.getState().userId,
+      ...(useSession.getState().userId ? { "X-User-Id": useSession.getState().userId! } : {}),
     },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
@@ -33,6 +36,12 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
     throw new ApiError(detail || res.statusText);
   }
   return data as T;
+}
+
+export interface ProfileInput {
+  university: string;
+  year: string;
+  major: string;
 }
 
 export interface NewOrder {
@@ -52,10 +61,23 @@ export const api = {
   trades: (id: string) => request<Trade[]>("GET", `/api/markets/${id}/trades`),
   history: (id: string) => request<HistoryPoint[]>("GET", `/api/markets/${id}/history`),
   student: (id: string) => request<StudentProfile>("GET", `/api/students/${id}`),
+  createStudent: (p: ProfileInput) => request<{ id: string; user_id: string; name: string }>("POST", "/api/students", p),
+  me: {
+    student: () => request<MyStudent>("GET", "/api/me/student"),
+    updateProfile: (p: ProfileInput) => request<MyStudent>("PUT", "/api/me/student", p),
+    saveDisclosure: ({ type, data }: { type: DisclosureType; data: unknown }) =>
+      request<MyStudent>("PUT", `/api/me/student/disclosures/${type}`, { data }),
+    proposeGoal: (g: { threshold: number; term: string }) => request<MyStudent>("POST", "/api/me/goals", g),
+  },
   portfolio: () => request<Portfolio>("GET", "/api/portfolio"),
   placeOrder: (o: NewOrder) => request<OrderResult>("POST", "/api/orders", o),
   cancelOrder: (id: number) => request<Order>("DELETE", `/api/orders/${id}`),
   admin: {
+    markets: () => request<Market[]>("GET", "/api/admin/markets"),
+    students: () => request<AdminStudent[]>("GET", "/api/admin/students"),
+    verifyStudent: (id: string) => request<AdminStudent>("POST", `/api/admin/students/${id}/verify`),
+    delistStudent: (id: string) => request<AdminStudent>("POST", `/api/admin/students/${id}/delist`),
+    restoreStudent: (id: string) => request<AdminStudent>("POST", `/api/admin/students/${id}/restore`),
     open: (id: string) => request<Market>("POST", `/api/admin/markets/${id}/open`),
     lockPreview: (id: string) => request<LockPreview>("GET", `/api/admin/markets/${id}/lock-preview`),
     lock: (id: string, probability: number | null) =>

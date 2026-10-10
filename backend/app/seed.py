@@ -8,7 +8,7 @@ from sqlalchemy import inspect, select
 from .db import Base, SessionLocal, engine, utcnow
 from .models import Disclosure, Market, Student, User, Wallet
 from .services import ledger_service as ledger
-from .services import market_service, order_service, scholarship_service, settlement_service
+from .services import market_service, order_service, scholarship_service, settlement_service, student_service
 from .services.matching_engine import BUY, LIMIT, NO, SELL, YES
 
 TRADER_CREDITS = 10_000_00
@@ -141,6 +141,17 @@ def seed(db, now: datetime) -> None:
             order_service.place_order(db, "MM_BETA", mid, NO, BUY, LIMIT, 100 - price, qty, now=t)
         for price, qty in book["bids"]:
             order_service.place_order(db, "MM_ALPHA", mid, YES, BUY, LIMIT, price, qty, now=t)
+
+
+    # A newly signed-up student waiting in the admin queue: unverified records and a draft goal.
+    newcomer = student_service.create_student(db, "NC Central University", "Sophomore", "Chemistry")
+    student_service.upsert_disclosure(db, newcomer, "GPA_HISTORY", {"terms": [
+        {"term": "Fall 2025", "gpa": 3.44, "credits": 15}, {"term": "Spring 2026", "gpa": 3.58, "credits": 16}]})
+    student_service.upsert_disclosure(db, newcomer, "COURSE_LOAD", {"courses": [
+        {"code": "CHEM 2100", "name": "Organic Chemistry I", "credits": 4},
+        {"code": "MATH 2010", "name": "Calculus III", "credits": 4},
+        {"code": "PHYS 2310", "name": "General Physics I", "credits": 4}]})
+    student_service.propose_goal(db, newcomer, 3.6, "Fall 2026")
 
 
 def _simulate_history(db, rng, market_id, p0, p1, now, n=36, hours=72):

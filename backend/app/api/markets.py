@@ -5,7 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..db import get_db
-from ..models import Market, Order, Trade
+from ..models import Market, Order, Student, Trade
 from ..services import market_service
 from ..services.matching_engine import aggregate_levels
 from ..services.order_service import OPEN_STATUSES
@@ -16,7 +16,11 @@ router = APIRouter(prefix="/api/markets", tags=["markets"])
 
 @router.get("")
 async def list_markets(db: Session = Depends(get_db)):
-    return [ser.market(db, m) for m in db.scalars(select(Market).order_by(Market.id)).all()]
+    """Public directory: hides draft goals and delisted students."""
+    rows = db.scalars(select(Market).join(Student, Student.id == Market.student_id)
+                      .where(Market.status != "DRAFT", Student.status == "ACTIVE")
+                      .order_by(Market.id)).all()
+    return [ser.market(db, m) for m in rows]
 
 
 @router.get("/{market_id}")

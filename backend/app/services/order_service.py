@@ -8,7 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..db import DomainError, utcnow
-from ..models import Market, Order, Position, Trade, User
+from ..models import Market, Order, Position, Student, Trade, User
 from . import ledger_service as ledger
 from .matching_engine import (BID, BUY, LIMIT, MARKET, NO, SELL, YES, contract_price, crosses,
                               normalize, opposite, trade_type)
@@ -50,6 +50,8 @@ def _place(db, user_id, market_id, contract, action, order_type, price_cents, qu
         raise DomainError("Market not found", 404)
     if market.status not in TRADABLE_STATUSES:
         raise DomainError(f"Trading is not allowed while the market is {market.status}")
+    if db.get(Student, market.student_id).status != "ACTIVE":
+        raise DomainError("This student is not currently listed")
     if contract not in (YES, NO) or action not in (BUY, SELL) or order_type not in (LIMIT, MARKET):
         raise DomainError("Invalid order")
     if not isinstance(quantity, int) or quantity <= 0:

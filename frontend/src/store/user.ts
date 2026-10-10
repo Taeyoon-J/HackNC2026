@@ -1,28 +1,49 @@
 import { create } from "zustand";
 
-interface UserState {
-  userId: string;
-  setUserId: (id: string) => void;
+export type Role = "STUDENT" | "TRADER" | "ADMIN";
+
+interface Session {
+  userId: string | null;
+  role: Role | null;
+  login: (userId: string, role: Role) => void;
+  logout: () => void;
 }
 
-const KEY = "spe.userId";
+const KEY = "spe.session";
 
-function initial(): string {
+function load(): Pick<Session, "userId" | "role"> {
   try {
-    return localStorage.getItem(KEY) ?? "TRADER_A";
+    const raw = localStorage.getItem(KEY);
+    if (raw) return JSON.parse(raw);
   } catch {
-    return "TRADER_A";
+    /* storage unavailable */
+  }
+  return { userId: null, role: null };
+}
+
+function save(value: Pick<Session, "userId" | "role">) {
+  try {
+    localStorage.setItem(KEY, JSON.stringify(value));
+  } catch {
+    /* storage unavailable: session lives in memory only */
   }
 }
 
-export const useUserStore = create<UserState>((set) => ({
-  userId: initial(),
-  setUserId: (id) => {
-    try {
-      localStorage.setItem(KEY, id);
-    } catch {
-      /* storage unavailable: keep in memory only */
-    }
-    set({ userId: id });
+/** Demo session: no credentials, the user just picks a role and an account. */
+export const useSession = create<Session>((set) => ({
+  ...load(),
+  login: (userId, role) => {
+    save({ userId, role });
+    set({ userId, role });
+  },
+  logout: () => {
+    save({ userId: null, role: null });
+    set({ userId: null, role: null });
   },
 }));
+
+export const ROLE_HOME: Record<Role, string> = {
+  STUDENT: "/student",
+  TRADER: "/markets",
+  ADMIN: "/admin",
+};

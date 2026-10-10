@@ -4,7 +4,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from .api import admin, markets, orders, portfolio, students
+from .api import admin, markets, me, orders, portfolio, students
 from .db import Base, DomainError, engine
 from .realtime.ws_manager import ALL, manager
 
@@ -20,7 +20,7 @@ async def lifespan(_: FastAPI):
 app = FastAPI(title="Student Performance Exchange", lifespan=lifespan)
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
-for module in (markets, orders, portfolio, students, admin):
+for module in (markets, orders, portfolio, students, me, admin):
     app.include_router(module.router)
 
 

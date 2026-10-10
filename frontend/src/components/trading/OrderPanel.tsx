@@ -35,7 +35,7 @@ export function OrderPanel({ market, contract, onContractChange, price, onPriceC
   const effPrice = orderType === "MARKET" ? (action === "BUY" ? 99 : 1) : price;
   const total = effPrice * quantity;
   const disabledReason = !isTrader
-    ? "Switch to a trader account"
+    ? "Only traders can place orders"
     : !tradable
       ? "Market is not open for trading"
       : action === "SELL" && quantity > sellable

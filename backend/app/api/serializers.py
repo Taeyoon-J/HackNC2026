@@ -14,7 +14,8 @@ def iso(dt: datetime | None) -> str | None:
 def student_brief(db: Session, student: Student) -> dict:
     user = db.get(User, student.user_id)
     return {"id": student.id, "name": user.display_name, "university": student.university,
-            "year": student.year, "major": student.major, "verified": student.verified}
+            "year": student.year, "major": student.major, "verified": student.verified,
+            "status": student.status}
 
 
 def scholarship(s: Scholarship | None) -> dict | None:

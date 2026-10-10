@@ -25,6 +25,7 @@ export interface StudentBrief {
   year: string;
   major: string;
   verified: boolean;
+  status: "ACTIVE" | "DELISTED";
 }
 
 export interface Scholarship {
@@ -146,9 +147,11 @@ export interface Portfolio {
   settlements: SettlementRow[];
 }
 
+export type DisclosureType = "GPA_HISTORY" | "COURSE_LOAD" | "ACTIVITY" | "APPLICATION";
+
 export interface Disclosure {
   id: number;
-  type: "GPA_HISTORY" | "COURSE_LOAD" | "ACTIVITY" | "APPLICATION";
+  type: DisclosureType;
   title: string;
   data: any;
   verified_at: string | null;
@@ -174,4 +177,17 @@ export interface InvariantCheck {
   name: string;
   ok: boolean;
   detail: string;
+}
+
+export interface MyStudent extends StudentBrief {
+  user_id: string;
+  wallet_cents: number;
+  disclosures: Disclosure[];
+  markets: Market[];
+}
+
+export interface AdminStudent extends StudentBrief {
+  user_id: string;
+  pending_disclosures: number;
+  markets: { id: string; status: MarketStatus; threshold: number; term: string }[];
 }

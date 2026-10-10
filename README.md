@@ -20,10 +20,21 @@ npm install && npm run dev
 Tests: `cd backend && .venv/bin/python -m pytest -q`
 Reset data: "Reset demo data" on the Admin page, or delete `backend/spe.db` and restart.
 
+## Roles
+
+The login page asks "I am a…" — no password. Pick a role, then an account.
+
+| Role | Pages |
+|---|---|
+| Student | **My profile**: edit profile and academic records (edits need admin re-verification), propose a GPA goal, see forecast and scholarship |
+| Trader | **Markets**, market detail with order book, **Portfolio** |
+| Admin | **Pricing** (open goals, lock scholarship, resolve, settle), **Students** (verify, remove from list / restore), **System** (invariants, demo script, reset) |
+
+Students are listed anonymously as "Student A, B, …". Student F is seeded as a new signup waiting for verification.
+
 ## Demo script
 
-Switch users with the dropdown in the top-right. The Admin page has an "End-to-end demo script"
-card with one-click shortcuts for each step.
+Admin → System has an "End-to-end demo script" card with one-click account switches for each step.
 
 1. Trader A: on `STU001`, limit buy 100 YES @ 60¢ (rests on the book)
 2. Trader B: buy 100 NO @ 40¢ → **MINT** 100 pairs, $100 collateral
@@ -40,12 +51,13 @@ backend/app/
   services/market_service.py       state machine DRAFT→…→SETTLED, stats/VWAP
   services/scholarship_service.py  scholarship formula, VWAP-based lock, separate reserve
   services/settlement_service.py   resolution, contract + scholarship payout (idempotent)
+  services/student_service.py      signup, profile/record edits, goal proposals, verify / delist
   services/invariants.py           supply, collateral, ledger and reservation checks
   api/                             REST routers (spec §8) + /ws WebSocket
   seed.py                          5 students, 5 markets, market-maker trade history
 frontend/src/
-  pages/        MarketDirectory · MarketPage · PortfolioPage · AdminPage
   components/   layout · market · student · trading · portfolio · admin
+  pages/        LoginPage · student/ · trader/ · admin/
   hooks/        TanStack Query hooks, WebSocket → query invalidation
 ```
 

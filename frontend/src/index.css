@@ -34,18 +34,20 @@ body {
   @apply bg-canvas font-sans text-body antialiased;
 }
 
-.card {
-  @apply rounded-2xl border border-line bg-surface shadow-[0_1px_2px_rgba(31,41,55,0.04)];
-}
-.card-title {
-  @apply text-xs font-bold uppercase tracking-wider text-muted;
-}
-.num {
-  font-variant-numeric: tabular-nums;
-}
-.btn {
-  @apply rounded-lg px-3 py-1.5 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-40;
-}
-.input {
-  @apply w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/15;
+@layer components {
+  .card {
+    @apply rounded-2xl border border-line bg-surface shadow-[0_1px_2px_rgba(31,41,55,0.04)];
+  }
+  .card-title {
+    @apply text-xs font-bold uppercase tracking-wider text-muted;
+  }
+  .num {
+    font-variant-numeric: tabular-nums;
+  }
+  .btn {
+    @apply rounded-lg px-3 py-1.5 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-40;
+  }
+  .input {
+    @apply w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/15;
+  }
 }

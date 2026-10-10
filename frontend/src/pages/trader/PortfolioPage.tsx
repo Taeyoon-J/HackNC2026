@@ -1,8 +1,8 @@
-import { BalanceSummary } from "../components/portfolio/BalanceSummary";
-import { PositionsTable } from "../components/portfolio/PositionsTable";
-import { SettlementHistory } from "../components/portfolio/SettlementHistory";
-import { OpenOrdersTable } from "../components/trading/OpenOrdersTable";
-import { usePortfolio } from "../hooks/queries";
+import { BalanceSummary } from "../../components/portfolio/BalanceSummary";
+import { PositionsTable } from "../../components/portfolio/PositionsTable";
+import { SettlementHistory } from "../../components/portfolio/SettlementHistory";
+import { OpenOrdersTable } from "../../components/trading/OpenOrdersTable";
+import { usePortfolio } from "../../hooks/queries";
 
 export function PortfolioPage() {
   const { data: p } = usePortfolio();

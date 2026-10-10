@@ -4,9 +4,13 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from ..db import get_db
+from sqlalchemy import func, select
+
+from ..db import DomainError, get_db
+from ..models import Disclosure, Market, Student
 from ..realtime.ws_manager import ALL, manager
-from ..services import invariants, market_service, scholarship_service, settlement_service
+from ..services import (invariants, market_service, scholarship_service, settlement_service,
+                        student_service)
 from . import serializers as ser
 from .deps import admin_user
 
@@ -27,9 +31,17 @@ async def _status_changed(db, market):
     return ser.market(db, market, detail=True)
 
 
+@router.get("/markets")
+async def all_markets(db: Session = Depends(get_db)):
+    return [ser.market(db, m) for m in db.scalars(select(Market).order_by(Market.id)).all()]
+
+
 @router.post("/markets/{market_id}/open")
 async def open_market(market_id: str, db: Session = Depends(get_db)):
     market = market_service.get_market(db, market_id)
+    student = db.get(Student, market.student_id)
+    if not student.verified or student.status != "ACTIVE":
+        raise DomainError("Verify and list the student before opening their market")
     market_service.open_market(db, market)
     return await _status_changed(db, market)
 
@@ -88,3 +100,46 @@ async def reset():
     reset_and_seed()
     await manager.broadcast("MARKET_STATUS_CHANGED", ALL, {"reset": True})
     return {"ok": True}
+
+
+def _student(db: Session, student_id: str) -> Student:
+    s = db.get(Student, student_id)
+    if s is None:
+        raise DomainError("Student not found", 404)
+    return s
+
+
+def _student_row(db: Session, s: Student) -> dict:
+    pending = db.scalar(select(func.count(Disclosure.id)).where(Disclosure.student_id == s.id,
+                                                                Disclosure.verified_at.is_(None)))
+    markets = db.scalars(select(Market).where(Market.student_id == s.id).order_by(Market.created_at)).all()
+    return {**ser.student_brief(db, s), "user_id": s.user_id, "pending_disclosures": pending,
+            "markets": [{"id": m.id, "status": m.status, "threshold": m.threshold, "term": m.term}
+                        for m in markets]}
+
+
+@router.get("/students")
+async def list_students(db: Session = Depends(get_db)):
+    return [_student_row(db, s) for s in db.scalars(select(Student).order_by(Student.id)).all()]
+
+
+@router.post("/students/{student_id}/verify")
+async def verify_student(student_id: str, db: Session = Depends(get_db)):
+    s = student_service.verify(db, _student(db, student_id))
+    await manager.broadcast("STUDENT_UPDATED", ALL, {"student_id": s.id})
+    return _student_row(db, s)
+
+
+@router.post("/students/{student_id}/delist")
+async def delist_student(student_id: str, db: Session = Depends(get_db)):
+    s = _student(db, student_id)
+    cancelled = student_service.delist(db, s)
+    await manager.broadcast("STUDENT_UPDATED", ALL, {"student_id": s.id})
+    return {**_student_row(db, s), "cancelled_orders": cancelled}
+
+
+@router.post("/students/{student_id}/restore")
+async def restore_student(student_id: str, db: Session = Depends(get_db)):
+    s = student_service.restore(db, _student(db, student_id))
+    await manager.broadcast("STUDENT_UPDATED", ALL, {"student_id": s.id})
+    return _student_row(db, s)
