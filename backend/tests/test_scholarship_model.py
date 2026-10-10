@@ -21,14 +21,21 @@ def test_initial_price_is_share_value_times_probability(priced):
         s = m["initial_scholarship_cents"]
         assert 30_000_00 <= s <= 50_000_00 and m["total_supply"] == 100
         assert m["share_value_cents"] == s // 100 and m["probability"] == p and m["threshold"] == goal
-        assert m["last_price"] == round(s / 100 * p)
+        history = priced.get(f"/api/markets/{sid}-GPA-2026F/history").json()
+        assert history[0]["price"] == round(s / 100 * p)  # opens at S/100 × p on Aug 1
+        assert len(history) > 200
+        book = priced.get(f"/api/markets/{sid}-GPA-2026F/orderbook").json()
+        assert sum(l["orders"] for l in book["bids"]) >= 8 and sum(l["orders"] for l in book["asks"]) >= 8
     assert_invariants(priced)
 
 
 def test_price_bounds_follow_share_value(priced):
     m = priced.get(f"/api/markets/{M1}").json()
-    assert order(priced, "TRADER_A", "YES", "BUY", m["share_value_cents"], 1).status_code == 400
-    assert order(priced, "TRADER_A", "YES", "BUY", m["share_value_cents"] - 1, 1).status_code == 200
+    too_high = order(priced, "TRADER_A", "YES", "BUY", m["share_value_cents"], 1)
+    assert too_high.status_code == 400 and "Price must be between" in too_high.json()["detail"]
+    # The ceiling itself is a legal price (it may still be refused for other reasons, e.g. self-trade).
+    at_ceiling = order(priced, "TRADER_A", "YES", "BUY", m["share_value_cents"] - 1, 1)
+    assert "Price must be between" not in at_ceiling.json().get("detail", "")
 
 
 def _settle(client, final_gpa):

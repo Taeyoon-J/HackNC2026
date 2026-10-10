@@ -1,4 +1,5 @@
 """Spec §10 end-to-end demo plus the Phase 4 edge cases."""
+from app.seed import TRADER_CREDITS
 from conftest import M1, as_user, assert_invariants, order
 
 
@@ -55,7 +56,7 @@ def test_sweep_matches_spec_example(client):
     assert [(t["yes_price"], t["quantity"]) for t in r["trades"]] == [(62, 150), (63, 50)]
     assert r["total_cents"] == 124_50 and r["avg_price_cents"] == 62.25
     p = as_user(client, "TRADER_A")("GET", "/api/portfolio").json()
-    assert p["reserved_cents"] == 0 and p["available_cents"] == 10_000_00 - 124_50
+    assert p["reserved_cents"] == 0 and p["available_cents"] == TRADER_CREDITS - 124_50
     assert_invariants(client)
 
 
@@ -66,7 +67,7 @@ def test_partial_fill_then_cancel_releases_reservation(client):
     assert p["reserved_cents"] == 50 * 62
     as_user(client, "TRADER_A")("DELETE", f"/api/orders/{r['order']['id']}")
     p = as_user(client, "TRADER_A")("GET", "/api/portfolio").json()
-    assert p["reserved_cents"] == 0 and p["available_cents"] == 10_000_00 - 150 * 62
+    assert p["reserved_cents"] == 0 and p["available_cents"] == TRADER_CREDITS - 150 * 62
     assert_invariants(client)
 
 
@@ -78,7 +79,7 @@ def test_market_order_cancels_remainder(client):
 
 
 def test_insufficient_balance_and_inventory(client):
-    assert order(client, "TRADER_A", "YES", "BUY", 50, 100_000).status_code == 400
+    assert order(client, "TRADER_A", "YES", "BUY", 50, TRADER_CREDITS).status_code == 400
     assert order(client, "TRADER_A", "YES", "SELL", 70, 1).status_code == 400
     assert_invariants(client)
 

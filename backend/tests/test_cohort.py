@@ -5,6 +5,7 @@ from sqlalchemy import func, select
 from app.db import SessionLocal, utcnow
 from app.demo_data import COHORT_SIZE, UNC, UNC_COUNT, UNIVERSITIES, cohort_profiles, populate_cohort, resize_cohort, university_counts
 from app.models import Student
+from app.seed import TRADER_CREDITS
 from conftest import as_user, assert_invariants
 
 
@@ -129,6 +130,6 @@ def test_resize_preserves_retained_records_and_releases_removed_market(client):
     after_a = as_user(client, "TRADER_A")("GET", "/api/portfolio").json()
     assert after_a == trader_a
     after_b = as_user(client, "TRADER_B")("GET", "/api/portfolio").json()
-    assert after_b["available_cents"] == 1_000_000 and after_b["reserved_cents"] == 0
+    assert after_b["available_cents"] == TRADER_CREDITS and after_b["reserved_cents"] == 0
     assert after_b["positions"] == after_b["open_orders"] == []
     assert_invariants(client)

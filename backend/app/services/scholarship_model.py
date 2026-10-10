@@ -8,8 +8,9 @@ Student payout once the final GPA is verified:
     goal met:     S × ((final GPA − goal GPA) / p + 1)
     goal missed:  final share price × 100
 """
+import math
 import random
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 from sqlalchemy import delete, select
 
@@ -21,6 +22,9 @@ from .matching_engine import BUY, LIMIT, SELL, YES
 
 STOCK_COUNT = 100
 MAX_GPA = 4.0
+HISTORY_START = datetime(2026, 8, 1, 9, 0)
+TRADERS = ("TRADER_A", "TRADER_B", "TRADER_C")
+PARTICIPANTS = TRADERS + ("MM_ALPHA", "MM_BETA")
 
 # student_id -> (goal GPA, probability). Goals and probabilities are fixed inputs.
 STUDENTS = {
@@ -46,15 +50,16 @@ def max_payout_cents(market: Market) -> int:
     return max(success, market.share_value_cents * market.total_supply)
 
 
-def apply(db, now=None) -> list[str]:
-    """List Students A–E on scholarship-priced shares. Idempotent per market."""
+def apply(db, now=None, *, rebuild=False) -> list[str]:
+    """List Students A–E on scholarship-priced shares. Idempotent per market unless
+    `rebuild` is set, which regenerates the trade history of already-listed markets."""
     now = now or utcnow()
     listed = []
     for sid, (goal, probability) in STUDENTS.items():
         market = db.scalar(select(Market).where(Market.student_id == sid, Market.term == "Fall 2026"))
         if market is None:
             market = _create_fall_market(db, sid, goal)
-        if market.probability_bp or market.status not in ("DRAFT", "TRADING", "PRICE_DISCOVERY"):
+        if (market.probability_bp and not rebuild) or market.status not in ("DRAFT", "TRADING", "PRICE_DISCOVERY"):
             continue
         _relist(db, market, goal, probability, now)
         listed.append(market.id)
@@ -123,40 +128,68 @@ def _relist(db, market, goal, probability, now):
     scholarship.locked_probability_bp, scholarship.paid_at = market.probability_bp, None
     db.flush()
 
-    # 3. Three days of market-maker trades around the opening price, ending at it.
+    # 3. Trades since August 1, starting at the opening price, then a deep current book.
     opening = round(market.share_value_cents * probability)
-    _history(db, rng, market, opening, now)
-
-    # 4. A small demo holding for Trader A, filled at the opening price, then two-sided quotes.
-    if market.student_id != "STU005":
-        t = now - timedelta(minutes=12)
-        order_service._place(db, "MM_ALPHA", market.id, YES, SELL, LIMIT, opening, 2, t)
-        order_service._place(db, "TRADER_A", market.id, YES, BUY, LIMIT, opening, 2, t)
-    _quote(db, market, opening, now)
-    if market.student_id in ("STU001", "STU002"):
-        order_service._place(db, "TRADER_A", market.id, YES, BUY, LIMIT, round(opening * 0.8), 1, now - timedelta(minutes=4))
+    last = _history(db, rng, market, opening, probability, now)
+    _book(db, rng, market, last, now)
 
 
-def _history(db, rng, market, opening, now, n=24, hours=72):
-    for i in range(n):
-        frac = i / (n - 1)
-        drift = 1 + 0.06 * (frac - 1) + rng.uniform(-0.03, 0.03)
-        price = opening if i == n - 1 else max(1, min(market.share_value_cents - 1, round(opening * drift)))
-        qty = rng.choice([1, 1, 2, 3])
-        t = now - timedelta(hours=hours * (1 - frac)) - timedelta(minutes=30)
-        seller, buyer = ("MM_ALPHA", "MM_BETA") if i % 3 else ("MM_BETA", "MM_ALPHA")
-        if order_service.position(db, seller, market.id, YES).quantity < qty:
-            seller, buyer = buyer, seller
+def _available(db, user, market):
+    pos = order_service.position(db, user, market.id, YES)
+    return pos.quantity - pos.reserved_qty
+
+
+def _history(db, rng, market, opening, probability, now):
+    """Mean-reverting walk of the share price from HISTORY_START to now.
+
+    Every trade is a real seller/buyer pair through the matching engine, so cash,
+    holdings and the ledger stay consistent. The issuer distributes shares first;
+    afterwards traders and market makers trade among themselves."""
+    value = market.share_value_cents
+    days = max(1, (now - HISTORY_START).days)
+    times = sorted(HISTORY_START + timedelta(days=rng.uniform(0, days), minutes=rng.uniform(0, 600))
+                   for _ in range(days * rng.randint(5, 8)))
+    times = [t for t in times if t < now - timedelta(minutes=30)]
+    fraction = probability
+    price = opening
+    for i, t in enumerate(times):
+        if i:
+            fraction += 0.04 * (probability - fraction) + rng.gauss(0, 0.012)
+            fraction = min(0.95, max(0.05, fraction))
+            price = max(1, min(value - 1, round(value * fraction)))
+        sellers = [u for u in PARTICIPANTS if _available(db, u, market) > 0]
+        # The issuer sells most early trades so the 100 shares spread across traders.
+        seller = "MM_ALPHA" if "MM_ALPHA" in sellers and rng.random() < 0.6 else rng.choice(sellers)
+        qty = min(rng.choice([1, 1, 1, 2, 2, 3, 4, 5]), _available(db, seller, market))
+        buyers = [u for u in PARTICIPANTS if u != seller and ledger.wallet(db, u).available_cents >= price * qty * 2]
+        if not buyers:
+            continue
+        buyer = rng.choice(buyers)
         order_service._place(db, seller, market.id, YES, SELL, LIMIT, price, qty, t)
         order_service._place(db, buyer, market.id, YES, BUY, LIMIT, price, qty, t)
+    return price
 
 
-def _quote(db, market, price, now):
-    t = now - timedelta(minutes=10)
-    for maker in ("MM_ALPHA", "MM_BETA"):
-        pos = order_service.position(db, maker, market.id, YES)
-        available = pos.quantity - pos.reserved_qty
-        if available:
-            ask = min(market.share_value_cents - 1, round(price * 1.02))
-            order_service._place(db, maker, market.id, YES, SELL, LIMIT, ask, available, t)
-    order_service._place(db, "MM_BETA", market.id, YES, BUY, LIMIT, max(1, round(price * 0.98)), 5, t)
+def _book(db, rng, market, last, now):
+    """Many resting buy and sell orders around the last price from all participants."""
+    value = market.share_value_cents
+    t0 = now - timedelta(hours=6)
+    for user in PARTICIPANTS:
+        available = _available(db, user, market)
+        sell_qty = math.ceil(available * rng.uniform(0.4, 0.8)) if available else 0
+        while sell_qty > 0:
+            qty = min(sell_qty, rng.randint(1, 4))
+            ask = min(value - 1, round(last * (1 + rng.uniform(0.004, 0.09))))
+            order_service._place(db, user, market.id, YES, SELL, LIMIT, ask, qty, t0 + timedelta(minutes=rng.uniform(0, 340)))
+            sell_qty -= qty
+    for user in TRADERS + ("MM_BETA",):
+        for _ in range(rng.randint(3, 6)):
+            pos = order_service.position(db, user, market.id, YES)
+            queued = sum(o.remaining for o in db.scalars(select(Order).where(
+                Order.market_id == market.id, Order.user_id == user, Order.action == BUY,
+                Order.status.in_(order_service.OPEN_STATUSES))))
+            qty = min(rng.randint(1, 4), STOCK_COUNT - pos.quantity - queued)
+            bid = max(1, round(last * (1 - rng.uniform(0.004, 0.09))))
+            if qty <= 0 or ledger.wallet(db, user).available_cents < bid * qty:
+                break
+            order_service._place(db, user, market.id, YES, BUY, LIMIT, bid, qty, t0 + timedelta(minutes=rng.uniform(0, 340)))
