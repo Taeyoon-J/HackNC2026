@@ -52,3 +52,20 @@ def test_admin_student_endpoints_require_admin(client):
     rows = as_user(client, "ADMIN")("GET", "/api/admin/students").json()
     newcomer = next(r for r in rows if r["name"] == "Student F")
     assert not newcomer["verified"] and newcomer["pending_disclosures"] == 2
+
+
+def test_record_edits_go_to_admin_queue(client):
+    me, admin = as_user(client, "STUDENT_A"), as_user(client, "ADMIN")
+    me("PUT", "/api/me/student/disclosures/ACTIVITY", json={"data": {"items": ["Robotics club"]}})
+    me("PUT", "/api/me/student/disclosures/ACTIVITY", json={"data": {"items": ["Robotics club", "Tutor"]}})
+    pending = [r for r in me("GET", "/api/me/verifications").json() if r["type"] == "ACTIVITY"]
+    assert len(pending) == 1 and pending[0]["payload"]["data"]["items"] == ["Robotics club", "Tutor"]
+
+    queue = admin("GET", "/api/admin/verifications?status=PENDING&type=ACTIVITY").json()["items"]
+    assert pending[0]["id"] in {r["id"] for r in queue}
+    profile = client.get("/api/students/STU001").json()
+    assert all("Tutor" not in str(d["data"]) for d in profile["disclosures"])
+
+    admin("POST", f"/api/admin/verifications/{pending[0]['id']}/approve", json={})
+    activity = next(d for d in client.get("/api/students/STU001").json()["disclosures"] if d["type"] == "ACTIVITY")
+    assert activity["data"]["items"] == ["Robotics club", "Tutor"]

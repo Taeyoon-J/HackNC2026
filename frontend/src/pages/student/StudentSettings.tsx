@@ -2,16 +2,15 @@ import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../../api/client";
 import type { CourseRecord, EvidenceFile, VerificationInput, VerificationType } from "../../api/types";
-import { useAction, useMyStudent } from "../../hooks/queries";
+import { useAction, useMyStudent, useMyVerifications } from "../../hooks/queries";
+import { SETTINGS_TYPES, VERIFICATION_LABELS, summarize } from "../../lib/verification";
 
-export const VERIFICATION_LABELS: Record<VerificationType, string> = {
-  UNIVERSITY: "University change", MAJOR: "Major change", COURSE_LOAD: "Current course load / course grades", FINAL_GPA: "Final semester GPA",
-};
+export { VERIFICATION_LABELS };
 
 export function StudentSettings() {
   const { data: me } = useMyStudent();
   const { data: account } = useQuery({ queryKey: ["account"], queryFn: api.account.get });
-  const { data: requests = [] } = useQuery({ queryKey: ["my-verifications"], queryFn: api.me.verifications });
+  const { data: requests = [] } = useMyVerifications();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [currentPassword, setCurrentPassword] = useState("");
@@ -70,7 +69,7 @@ export function StudentSettings() {
     <section className="card space-y-4 p-5">
       <div><h2 className="font-semibold text-ink">Request academic verification</h2><p className="text-xs text-muted">Your current profile remains unchanged until an admin approves. Past semesters and academic year cannot be edited.</p></div>
       <label className="block text-xs text-muted">Request type<select className="input mt-1" value={type} onChange={(e) => { setType(e.target.value as VerificationType); submit.reset(); setValue(""); }}>
-        {Object.entries(VERIFICATION_LABELS).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
+        {SETTINGS_TYPES.map((key) => <option key={key} value={key}>{VERIFICATION_LABELS[key]}</option>)}
       </select></label>
       {type === "UNIVERSITY" || type === "MAJOR" ? <label className="block text-xs text-muted">Proposed {type.toLowerCase()} (currently {type === "UNIVERSITY" ? me.university : me.major})
         <input className="input mt-1" value={value} maxLength={120} onChange={(e) => setValue(e.target.value)} /></label> : <>
@@ -86,13 +85,13 @@ export function StudentSettings() {
         </div>)}</div>
         {type !== "FINAL_GPA" && <button type="button" className="text-sm text-brand" onClick={() => setCourses([...courses, { code: "", name: "", credits: 3 }])}>+ Add course</button>}
       </>}
-      <label className="block text-xs text-muted">Evidence description / registrar reference<textarea className="input mt-1" rows={3} value={evidence} maxLength={8000} onChange={(e) => setEvidence(e.target.value)} /></label>
-      <label className="block text-xs text-muted">Supporting document (PDF, PNG, JPEG or text; up to 3 MB)
+      <label className="block text-xs text-muted">Evidence description / registrar reference (optional)<textarea className="input mt-1" rows={3} value={evidence} maxLength={8000} onChange={(e) => setEvidence(e.target.value)} /></label>
+      <label className="block text-xs text-muted">Supporting document (optional · PDF, PNG, JPEG or text; up to 3 MB)
         <input type="file" className="mt-1 block w-full text-sm" accept=".pdf,.png,.jpg,.jpeg,.txt" onChange={(e) => void upload(e.target.files?.[0])} />
       </label>
       {file && <p className="text-xs text-brand">Attached: {file.name}</p>}
       {fileError && <p className="text-xs text-no">{fileError}</p>}
-      <button type="button" className="btn bg-brand text-white" disabled={submit.isPending || pending || (!evidence.trim() && !file)
+      <button type="button" className="btn bg-brand text-white" disabled={submit.isPending || pending
         || ((type === "UNIVERSITY" || type === "MAJOR") ? !value.trim() : invalidCourses) || (type === "FINAL_GPA" && !goal)} onClick={send}>
         {submit.isPending ? "Submitting…" : pending ? "Awaiting admin review" : "Submit verification request"}</button>
       {submit.error && <p className="text-sm text-no">{submit.error.message}</p>}
@@ -102,7 +101,7 @@ export function StudentSettings() {
       {requests.length === 0 && <p className="text-sm text-muted">No requests yet.</p>}
       <div className="space-y-3">{requests.map((r) => <div key={r.id} className="rounded-xl border border-line p-4">
         <div className="flex justify-between gap-3 text-sm"><strong>{VERIFICATION_LABELS[r.type]}</strong><span className={r.status === "APPROVED" ? "text-yes" : r.status === "REJECTED" ? "text-no" : "text-gold"}>{r.status.toLowerCase()}</span></div>
-        <p className="mt-1 text-xs text-muted">{new Date(r.created_at).toLocaleString()} · {r.payload.value ?? r.payload.term}{r.payload.gpa !== undefined && ` · GPA ${r.payload.gpa.toFixed(2)}`}</p>
+        <p className="mt-1 text-xs text-muted">{new Date(r.created_at).toLocaleString()} · {summarize(r)}</p>
         {r.review_note && <p className="mt-2 text-sm text-body">Admin: {r.review_note}</p>}
       </div>)}</div>
     </section>

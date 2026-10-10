@@ -226,12 +226,12 @@ export interface AdminStudentDetail extends AdminStudent {
 }
 
 export interface CourseRecord { code: string; name: string; credits: number; gpa?: number }
-export type VerificationType = "UNIVERSITY" | "MAJOR" | "COURSE_LOAD" | "FINAL_GPA";
+export type VerificationType = "UNIVERSITY" | "MAJOR" | "COURSE_LOAD" | "FINAL_GPA" | "BIOGRAPHY" | "ACTIVITY" | "APPLICATION";
 export interface Verification {
   id: number;
   student: StudentBrief;
   type: VerificationType;
-  payload: { value?: string; previous?: string; term?: string; market_id?: string; courses?: CourseRecord[]; credits?: number; gpa?: number };
+  payload: { value?: string; previous?: any; data?: any; term?: string; market_id?: string; courses?: CourseRecord[]; credits?: number; gpa?: number };
   evidence: string;
   evidence_file?: EvidenceFile | null;
   file_name: string | null;

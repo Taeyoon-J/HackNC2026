@@ -8,7 +8,9 @@ from ..db import DomainError, utcnow
 from ..models import Disclosure, Market, VerificationRequest
 from . import settlement_service, student_service
 
-TYPES = {"UNIVERSITY", "MAJOR", "COURSE_LOAD", "FINAL_GPA"}
+# Profile edits made on the student's own page; applied to the record only on approval.
+RECORD_TYPES = {"BIOGRAPHY", "ACTIVITY", "APPLICATION"}
+TYPES = {"UNIVERSITY", "MAJOR", "COURSE_LOAD", "FINAL_GPA"} | RECORD_TYPES
 FILE_TYPES = {"application/pdf", "image/png", "image/jpeg", "text/plain"}
 
 
@@ -68,14 +70,21 @@ def submit(db, student, dtype, payload, evidence, evidence_file=None):
     if student.status != "ACTIVE":
         raise DomainError("A delisted student cannot submit verification")
     file = validate_file(evidence_file)
-    evidence = evidence.strip()
-    if not evidence and not file:
-        raise DomainError("Add an evidence description or upload a supporting document")
+    evidence = evidence.strip()  # optional: a description and a file are both nice-to-have
     pending = db.scalar(select(VerificationRequest).where(VerificationRequest.student_id == student.id,
         VerificationRequest.type == dtype, VerificationRequest.status == "PENDING"))
-    if pending:
+    if pending and dtype not in RECORD_TYPES:
         raise DomainError("A request of this type is already awaiting review")
-    if dtype in ("UNIVERSITY", "MAJOR"):
+    if dtype in RECORD_TYPES:
+        payload = {"data": record_data(dtype, payload.get("data")), "previous": _current_record(db, student.id, dtype)}
+        if payload["data"] == payload["previous"]:
+            raise DomainError("No changes to submit")
+        if pending:
+            # A newer edit supersedes the one still waiting for review.
+            pending.payload, pending.evidence, pending.evidence_file, pending.created_at = payload, evidence, file, utcnow()
+            db.commit()
+            return pending
+    elif dtype in ("UNIVERSITY", "MAJOR"):
         value = payload.get("value")
         if not isinstance(value, str) or not 1 <= len(value.strip()) <= 120:
             raise DomainError("Provide a university or major name")
@@ -114,11 +123,41 @@ def submit(db, student, dtype, payload, evidence, evidence_file=None):
     return request
 
 
+def record_data(dtype, data):
+    if not isinstance(data, dict):
+        raise DomainError("Invalid profile data")
+    if dtype == "BIOGRAPHY":
+        out = {k: data.get(k, "") for k in ("introduction", "pitch")}
+        if any(not isinstance(v, str) or len(v) > 4000 for v in out.values()):
+            raise DomainError("Introduction and personal statement must be text of at most 4,000 characters each")
+        return {k: v.strip() for k, v in out.items()}
+    items = data.get("items")
+    if not isinstance(items, list) or len(items) > 30:
+        raise DomainError("Provide at most 30 entries")
+    if dtype == "ACTIVITY":
+        if any(not isinstance(i, str) or not i.strip() or len(i) > 200 for i in items):
+            raise DomainError("Each activity must be text of at most 200 characters")
+        return {"items": [i.strip() for i in items]}
+    if any(not isinstance(i, dict) or not str(i.get("name", "")).strip() or len(str(i.get("name"))) > 200
+           or len(str(i.get("result", ""))) > 100 for i in items):
+        raise DomainError("Each application needs a program name")
+    return {"items": [{"name": str(i["name"]).strip(), "result": str(i.get("result", "")).strip()} for i in items]}
+
+
+def _current_record(db, sid, dtype):
+    d = db.scalar(select(Disclosure).where(Disclosure.student_id == sid, Disclosure.type == dtype))
+    if d is None:
+        return {"introduction": "", "pitch": ""} if dtype == "BIOGRAPHY" else {"items": []}
+    return d.data
+
+
 def approve(db, request, student, reviewer, note=""):
     if request.status != "PENDING":
         raise DomainError("This request has already been reviewed")
     try:
-        if request.type in ("UNIVERSITY", "MAJOR"):
+        if request.type in RECORD_TYPES:
+            _save_record(db, student.id, request.type, request.payload["data"])
+        elif request.type in ("UNIVERSITY", "MAJOR"):
             setattr(student, request.type.lower(), request.payload["value"])
         elif request.type == "COURSE_LOAD":
             ensure_editable_term(db, student.id, request.payload["term"])

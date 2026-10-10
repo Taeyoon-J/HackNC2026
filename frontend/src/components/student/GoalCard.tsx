@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
 import { api } from "../../api/client";
 import type { Market, MarketStatus } from "../../api/types";
 import { useAction } from "../../hooks/queries";
@@ -63,7 +62,6 @@ function ActiveGoal({ market }: { market: Market }) {
           <div className={`num font-display text-2xl font-semibold ${s ? "text-gold" : "text-faint"}`}>
             {market.initial_scholarship_cents ? usd(market.initial_scholarship_cents) : s ? usd(s.promised_cents) : "Being assigned"}
           </div>
-          <div className="text-[11px] text-muted">Final amount = initial ± final YES price × $100</div>
         </div>
         <div>
           <div className="text-xs text-muted">Community forecast</div>
@@ -73,11 +71,6 @@ function ActiveGoal({ market }: { market: Market }) {
           <div className="text-[11px] text-muted">Deadline {dateShort(market.deadline)}</div>
         </div>
       </div>
-      {market.status !== "DRAFT" && (
-        <Link to={`/markets/${market.id}`} className="block border-t border-line px-5 py-3 text-sm font-semibold text-brand hover:bg-brand-soft">
-          See how the community sees my goal →
-        </Link>
-      )}
     </div>
   );
 }
@@ -91,8 +84,8 @@ function ProposeGoal({ disabled }: { disabled: boolean }) {
     <div className="card p-5">
       <div className="card-title">Set a goal</div>
       <p className="mt-1 text-sm text-body">
-        Pick a GPA target for an upcoming term. Your initial scholarship is adjusted by the final YES price
-        after your semester grades are verified.
+        Pick a GPA target for an upcoming term. Your scholarship is finalized after your semester grades are
+        verified.
       </p>
       <div className="mt-4 grid grid-cols-2 gap-3">
         <label className="block text-xs text-muted">

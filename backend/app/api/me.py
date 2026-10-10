@@ -6,11 +6,11 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from ..db import get_db
+from ..db import DomainError, get_db
 from ..models import Disclosure, Market, Scholarship, User
 from ..realtime.ws_manager import ALL, manager
 from ..services import ledger_service as ledger
-from ..services import student_service
+from ..services import student_service, verification_service
 from . import serializers as ser
 from .deps import current_user
 
@@ -59,9 +59,15 @@ async def my_student(user: User = Depends(current_user), db: Session = Depends(g
 
 @router.put("/student")
 async def update_profile(req: ProfileRequest, user: User = Depends(current_user), db: Session = Depends(get_db)):
+    """Introduction / personal statement edits go to the admin verification queue."""
     s = student_service.student_for_user(db, user.id)
-    student_service.update_profile(db, s, req.university, req.year, req.major, req.introduction, req.pitch)
-    await manager.broadcast("STUDENT_UPDATED", ALL, {"student_id": s.id})
+    if (req.university, req.year, req.major) != (s.university, s.year, s.major):
+        raise DomainError("University and major changes require a verification request in Settings. Academic year is read-only.")
+    current = verification_service._current_record(db, s.id, "BIOGRAPHY")
+    data = {"introduction": current.get("introduction", "") if req.introduction is None else req.introduction,
+            "pitch": current.get("pitch", "") if req.pitch is None else req.pitch}
+    r = verification_service.submit(db, s, "BIOGRAPHY", {"data": data}, "")
+    await manager.broadcast("VERIFICATION_UPDATED", ALL, {"id": r.id})
     return _profile(db, user)
 
 
@@ -69,11 +75,10 @@ async def update_profile(req: ProfileRequest, user: User = Depends(current_user)
 async def upsert_disclosure(dtype: str, req: DisclosureRequest, user: User = Depends(current_user),
                             db: Session = Depends(get_db)):
     s = student_service.student_for_user(db, user.id)
-    if dtype not in ("BIOGRAPHY", "ACTIVITY", "APPLICATION"):
-        from ..db import DomainError
+    if dtype not in verification_service.RECORD_TYPES:
         raise DomainError("Academic records are read-only. Submit course-load or final-GPA verification in Settings.", 403)
-    student_service.upsert_disclosure(db, s, dtype, req.data)
-    await manager.broadcast("STUDENT_UPDATED", ALL, {"student_id": s.id})
+    r = verification_service.submit(db, s, dtype, {"data": req.data}, "")
+    await manager.broadcast("VERIFICATION_UPDATED", ALL, {"id": r.id})
     return _profile(db, user)
 
 

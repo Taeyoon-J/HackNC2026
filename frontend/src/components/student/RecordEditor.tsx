@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../../api/client";
-import type { Disclosure, DisclosureType } from "../../api/types";
+import type { Disclosure, DisclosureType, Verification } from "../../api/types";
 import { useAction } from "../../hooks/queries";
 import { dateShort } from "../../lib/format";
 import { TranscriptEditor } from "./TranscriptEditor";
@@ -73,21 +73,23 @@ const SPECS: Record<DisclosureType, Spec> = {
   },
 };
 
-export function RecordEditor({ type, disclosure }: { type: DisclosureType; disclosure?: Disclosure }) {
+export function RecordEditor({ type, disclosure, pending }: { type: DisclosureType; disclosure?: Disclosure; pending?: Verification }) {
   if (type === "GPA_HISTORY") return <TranscriptEditor disclosure={disclosure} />;
-  return <SimpleRecordEditor type={type} disclosure={disclosure} />;
+  return <SimpleRecordEditor type={type} disclosure={disclosure} pending={pending} />;
 }
 
-function SimpleRecordEditor({ type, disclosure }: { type: DisclosureType; disclosure?: Disclosure }) {
+/** Edits are sent to the admin queue; until approved the editor shows the pending version. */
+function SimpleRecordEditor({ type, disclosure, pending }: { type: DisclosureType; disclosure?: Disclosure; pending?: Verification }) {
   const spec = SPECS[type];
-  const [rows, setRows] = useState<Row[]>(() => spec.toRows(disclosure?.data));
+  const source = pending?.payload.data ?? disclosure?.data;
+  const [rows, setRows] = useState<Row[]>(() => spec.toRows(source));
   const [dirty, setDirty] = useState(false);
   const save = useAction(api.me.saveDisclosure);
 
   useEffect(() => {
-    if (!dirty) setRows(spec.toRows(disclosure?.data));
+    if (!dirty) setRows(spec.toRows(source));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [disclosure]);
+  }, [disclosure, pending?.id, pending?.created_at]);
 
   const edit = (next: Row[]) => {
     setRows(next);
@@ -103,7 +105,7 @@ function SimpleRecordEditor({ type, disclosure }: { type: DisclosureType; disclo
           <h3 className="font-semibold text-ink">{spec.title}</h3>
           <p className="text-xs text-muted">{spec.hint}</p>
         </div>
-        <VerificationBadge disclosure={disclosure} dirty={dirty} />
+        <VerificationBadge disclosure={disclosure} dirty={dirty} pending={!!pending} />
       </div>
 
       <div className="mt-3 space-y-2">
@@ -144,15 +146,18 @@ function SimpleRecordEditor({ type, disclosure }: { type: DisclosureType; disclo
             save.mutate({ type, data: spec.fromRows(filled) }, { onSuccess: () => setDirty(false) })
           }
         >
-          {save.isPending ? "Saving…" : "Save"}
+          {save.isPending ? "Sending…" : "Submit for review"}
         </button>
       </div>
       {save.error && <p className="mt-2 text-xs text-no">{save.error.message}</p>}
+      {pending && !dirty && <p className="mt-2 text-xs text-gold">Sent to admin. The community sees the previous version until it is approved.</p>}
     </section>
   );
 }
 
-function VerificationBadge({ disclosure, dirty }: { disclosure?: Disclosure; dirty: boolean }) {
+function VerificationBadge({ disclosure, dirty, pending }: { disclosure?: Disclosure; dirty: boolean; pending: boolean }) {
+  if (pending && !dirty)
+    return <span className="shrink-0 rounded-full bg-gold-soft px-2 py-0.5 text-[11px] font-semibold text-gold">Waiting for admin review</span>;
   if (dirty) return <span className="shrink-0 rounded-full bg-sunken px-2 py-0.5 text-[11px] text-muted">Unsaved</span>;
   if (!disclosure) return <span className="shrink-0 rounded-full bg-sunken px-2 py-0.5 text-[11px] text-muted">Not added</span>;
   if (!disclosure.verified_at)

@@ -6,26 +6,30 @@ import { GoalCard } from "../../components/student/GoalCard";
 import { ProfileFields, emptyProfile } from "../../components/student/ProfileFields";
 import { RecordEditor } from "../../components/student/RecordEditor";
 import { DisclosureList } from "../../components/student/DisclosureList";
-import { useAction, useMyStudent } from "../../hooks/queries";
+import { useAction, useMyStudent, useMyVerifications } from "../../hooks/queries";
 import { usd } from "../../lib/format";
 
 const RECORDS: DisclosureType[] = ["GPA_HISTORY", "COURSE_LOAD", "ACTIVITY", "APPLICATION"];
 
 export function StudentHome() {
   const { data: me, error } = useMyStudent();
+  const { data: requests = [] } = useMyVerifications();
+  const pendingOf = (t: string) => requests.find((r) => r.type === t && r.status === "PENDING");
+  const bioPending = pendingOf("BIOGRAPHY");
   const [profile, setProfile] = useState<ProfileInput>(emptyProfile);
   const save = useAction(api.me.updateProfile);
 
   useEffect(() => {
-    if (me) setProfile({ university: me.university, year: me.year, major: me.major, introduction: me.introduction, pitch: me.pitch });
-  }, [me?.id, me?.university, me?.year, me?.major, me?.introduction, me?.pitch]);
+    if (me) setProfile({ university: me.university, year: me.year, major: me.major,
+      introduction: bioPending?.payload.data?.introduction ?? me.introduction, pitch: bioPending?.payload.data?.pitch ?? me.pitch });
+  }, [me?.id, me?.university, me?.year, me?.major, me?.introduction, me?.pitch, bioPending?.id, bioPending?.created_at]);
 
   if (error) return <p className="text-no">{error.message}</p>;
   if (!me) return <div className="card h-64 animate-pulse" />;
 
-  const changed = profile.university !== me.university || profile.year !== me.year || profile.major !== me.major
-    || profile.introduction !== me.introduction || profile.pitch !== me.pitch;
-  const pending = me.disclosures.filter((d) => d.type !== "BIOGRAPHY" && !d.verified_at).length;
+  const shown = { introduction: bioPending?.payload.data?.introduction ?? me.introduction, pitch: bioPending?.payload.data?.pitch ?? me.pitch };
+  const changed = profile.introduction !== shown.introduction || profile.pitch !== shown.pitch;
+  const pending = requests.filter((r) => r.status === "PENDING").length;
 
   return (
     <div className="space-y-6">
@@ -44,7 +48,7 @@ export function StudentHome() {
         <div className="flex gap-3">
           <Pill
             label="Status"
-            value={me.status === "DELISTED" ? "Not listed" : me.verified ? (pending ? `${pending} update(s) pending` : "Verified") : "Awaiting verification"}
+            value={me.status === "DELISTED" ? "Not listed" : me.verified ? (pending ? `${pending} request(s) in review` : "Verified") : "Awaiting verification"}
             tone={me.status === "DELISTED" ? "no" : me.verified && !pending ? "yes" : "gold"}
           />
           <Pill label="Scholarships received" value={usd(me.wallet_cents)} tone="gold" />
@@ -65,11 +69,12 @@ export function StudentHome() {
                 disabled={!changed || save.isPending || !profile.university || !profile.major}
                 onClick={() => save.mutate(profile)}
               >
-                {save.isPending ? "Saving…" : "Save profile"}
+                {save.isPending ? "Sending…" : "Submit for review"}
               </button>
             </div>
           </section>
           {save.error && <p className="text-sm text-no">{save.error.message}</p>}
+          {bioPending && !changed && <p className="text-sm text-gold">Your introduction update was sent to admin and will appear publicly once approved.</p>}
 
           <h2 className="pt-2 font-display text-xl font-semibold text-ink">Academic records</h2>
           <p className="-mt-2 text-sm text-muted">
@@ -79,7 +84,7 @@ export function StudentHome() {
             t === "GPA_HISTORY" || t === "COURSE_LOAD" ? <section key={t} className="card p-5">
               <DisclosureList disclosures={me.disclosures.filter((d) => d.type === t)} />
               <p className="mt-3 text-xs text-muted">{t === "GPA_HISTORY" ? "Approved past grades are read-only. Expand a semester to view course codes and grades." : "Course-load changes and grades require approval in Settings."}</p>
-            </section> : <RecordEditor key={t} type={t} disclosure={me.disclosures.find((d) => d.type === t)} />
+            </section> : <RecordEditor key={t} type={t} disclosure={me.disclosures.find((d) => d.type === t)} pending={pendingOf(t)} />
           ))}
         </div>
 

@@ -56,8 +56,14 @@ def test_full_cohort_search_and_role_visibility(client):
     assert as_user(client, "TRADER_A")("GET", "/api/admin/students/STU001").status_code == 403
 
     me = as_user(client, "STUDENT_A")
-    updated = me("PUT", "/api/me/student", json={"university": UNC, "year": "Junior", "major": "Computer Science",
-        "introduction": "A unique astronomy introduction", "pitch": "Supporting astronomy outreach"}).json()
+    me("PUT", "/api/me/student", json={"university": UNC, "year": "Junior", "major": "Computer Science",
+        "introduction": "A unique astronomy introduction", "pitch": "Supporting astronomy outreach"})
+    # Profile edits wait in the admin queue and apply only on approval.
+    assert client.get("/api/students/STU001").json()["introduction"] != "A unique astronomy introduction"
+    bio = next(r for r in me("GET", "/api/me/verifications").json() if r["type"] == "BIOGRAPHY")
+    assert bio["status"] == "PENDING" and bio["payload"]["data"]["pitch"] == "Supporting astronomy outreach"
+    admin("POST", f"/api/admin/verifications/{bio['id']}/approve", json={})
+    updated = me("GET", "/api/me/student").json()
     assert updated["introduction"] == "A unique astronomy introduction"
     assert client.get("/api/students/STU001").json()["pitch"] == updated["pitch"]
     assert admin("GET", "/api/admin/students/STU001").json()["introduction"] == updated["introduction"]

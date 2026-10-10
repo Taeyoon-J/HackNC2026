@@ -5,7 +5,8 @@ import type { EvidenceFile } from "../../api/types";
 import { StudentProfileCard } from "../../components/student/StudentProfileCard";
 import { ScholarshipSummary } from "../../components/admin/ScholarshipSummary";
 import { useAction, useMarket } from "../../hooks/queries";
-import { VERIFICATION_LABELS } from "../student/StudentSettings";
+import { VERIFICATION_LABELS, summarize } from "../../lib/verification";
+import { RecordChange } from "../../components/admin/RecordChange";
 
 function Evidence({ file }: { file: EvidenceFile }) {
   const bytes = useMemo(() => Uint8Array.from(atob(file.data_base64), (c) => c.charCodeAt(0)), [file.data_base64]);
@@ -44,7 +45,7 @@ export function AdminVerification() {
         {data?.items.map((r) => <button key={r.id} type="button" onClick={() => { setSelected(r.id); setNote(""); approve.reset(); reject.reset(); }} className={`w-full rounded-xl border p-3 text-left ${selected === r.id ? "border-brand bg-brand-soft" : "border-line hover:bg-sunken"}`}>
           <span className="flex justify-between gap-2 text-sm"><strong>{r.student.name}</strong><span className="text-xs text-gold">{r.status.toLowerCase()}</span></span>
           <span className="mt-1 block text-xs font-semibold text-brand">{VERIFICATION_LABELS[r.type]}</span>
-          <span className="mt-1 block text-xs text-muted">{r.payload.value ?? r.payload.term}{r.payload.gpa !== undefined && ` · GPA ${r.payload.gpa.toFixed(2)}`}</span>
+          <span className="mt-1 block text-xs text-muted">{summarize(r)}</span>
           <span className="mt-1 block text-[10px] text-muted">{new Date(r.created_at).toLocaleString()} · {r.student.id}</span>
         </button>)}
         {data?.items.length === 0 && <p className="p-4 text-sm text-muted">No requests match these filters.</p>}
@@ -53,11 +54,12 @@ export function AdminVerification() {
       {request ? <div className="space-y-4">
         <section className="card space-y-4 p-5"><h2 className="font-semibold text-ink">{VERIFICATION_LABELS[request.type]} · {request.student.name}</h2>
           <p className="text-xs text-muted">Requested {new Date(request.created_at).toLocaleString()} · {request.status.toLowerCase()}</p>
+          {request.payload.data && <RecordChange request={request} />}
           {request.payload.value && <p className="rounded-xl bg-brand-soft p-3 text-sm text-body">{request.payload.previous} → <strong>{request.payload.value}</strong></p>}
           {request.payload.courses && <div className="overflow-x-auto"><table className="w-full text-xs"><thead><tr className="text-left text-muted"><th className="py-2">Course</th><th>Credits</th><th>Grade</th></tr></thead><tbody>{request.payload.courses.map((c) => <tr key={c.code} className="border-t border-line"><td className="py-2">{c.code} · {c.name}</td><td>{c.credits}</td><td>{c.gpa?.toFixed(2) ?? "—"}</td></tr>)}</tbody></table></div>}
           {request.type === "FINAL_GPA" && <p className="rounded-xl bg-gold-soft p-3 text-sm text-gold">Final GPA {request.payload.gpa?.toFixed(2)} for {request.payload.term}.{market && ` Target GPA ≥ ${market.threshold.toFixed(2)}: ${(request.payload.gpa ?? 0) >= market.threshold ? "goal achieved" : "goal missed"}.`} Approval immediately closes trading, cancels pending orders and pays YES shares and the adjusted scholarship.</p>}
           {request.type === "FINAL_GPA" && market && <ScholarshipSummary market={market} />}
-          <div><h3 className="mb-1 text-sm font-semibold text-ink">Supporting evidence</h3><p className="whitespace-pre-wrap text-sm text-body">{request.evidence}</p></div>
+          <div><h3 className="mb-1 text-sm font-semibold text-ink">Supporting evidence</h3><p className="whitespace-pre-wrap text-sm text-body">{request.evidence || (request.evidence_file ? "" : "No evidence attached.")}</p></div>
           {request.evidence_file && <Evidence file={request.evidence_file} />}
           {request.status === "PENDING" ? <>
             <label className="block text-xs text-muted">Review note (required for rejection)<textarea className="input mt-1" rows={2} value={note} onChange={(e) => setNote(e.target.value)} /></label>

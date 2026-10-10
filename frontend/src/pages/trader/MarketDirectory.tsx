@@ -18,8 +18,8 @@ export function MarketDirectory({ favorites = false }: { favorites?: boolean }) 
             {favorites ? "Your favorites." : "Back students."} <span className="text-brand">{favorites ? "Keep your shortlist close." : "Reward real progress."}</span>
           </h1>
           <p className="mt-3 max-w-xl text-body">
-            Share your forecast on whether a student will reach their academic goal. Each student starts with a
-            scholarship that is adjusted by the final YES price after their grades are verified.
+            Share your forecast on whether a student will reach their academic goal. Every student earns a
+            scholarship once their grades are verified.
           </p>
           <p className="mt-3 text-xs text-muted">Virtual credits only · Students are anonymous · All data is synthetic</p>
         </div>

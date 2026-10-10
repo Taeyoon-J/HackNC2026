@@ -24,6 +24,11 @@ export function useMyStudent() {
   return useQuery({ queryKey: ["me", userId], queryFn: api.me.student, enabled: !!userId });
 }
 
+export function useMyVerifications() {
+  const userId = useSession((s) => s.userId);
+  return useQuery({ queryKey: ["my-verifications", userId], queryFn: api.me.verifications, enabled: !!userId });
+}
+
 export const useAdminMarkets = () => useQuery({ queryKey: ["admin", "markets"], queryFn: api.admin.markets });
 export const useAdminStudents = () => useQuery({ queryKey: ["admin", "students"], queryFn: api.admin.students });
 

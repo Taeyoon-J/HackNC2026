@@ -44,7 +44,10 @@ def test_readonly_profile_and_approval_queue(fixed):
     assert admin("POST", f"/api/admin/verifications/{req['id']}/reject", json={"note": "Missing advisor approval"}).status_code == 200
     assert me("GET", "/api/me/student").json()["major"] == profile["major"]
     own = me("PUT", "/api/me/student", json={"university": "Stanford University", "year": profile["year"], "major": profile["major"], "introduction": "My new introduction", "pitch": "My plan"})
-    assert own.status_code == 200 and fixed.get("/api/students/STU001").json()["introduction"] == "My new introduction"
+    assert own.status_code == 200 and fixed.get("/api/students/STU001").json()["introduction"] != "My new introduction"
+    bio = next(r for r in me("GET", "/api/me/verifications").json() if r["type"] == "BIOGRAPHY" and r["status"] == "PENDING")
+    admin("POST", f"/api/admin/verifications/{bio['id']}/approve", json={})
+    assert fixed.get("/api/students/STU001").json()["introduction"] == "My new introduction"
     assert_invariants(fixed)
 
 
@@ -101,8 +104,12 @@ def test_final_gpa_atomic_settlement_both_scholarships(fixed, grade, outcome, si
 
 def test_evidence_validation_course_change_and_rollback(fixed):
     me, admin = as_user(fixed, "STUDENT_A"), as_user(fixed, "ADMIN")
-    invalid = me("POST", "/api/me/verifications", json={"type": "MAJOR", "payload": {"value": "Statistics"}})
-    assert invalid.status_code == 400
+    # Evidence is optional: a request with neither text nor a file still reaches the admin queue.
+    bare = me("POST", "/api/me/verifications", json={"type": "MAJOR", "payload": {"value": "Statistics"}})
+    assert bare.status_code == 200
+    queue = admin("GET", "/api/admin/verifications?status=PENDING").json()["items"]
+    assert bare.json()["id"] in {r["id"] for r in queue}
+    admin("POST", f"/api/admin/verifications/{bare.json()['id']}/reject", json={"note": "Test"})
     invalid = me("POST", "/api/me/verifications", json={"type": "MAJOR", "payload": {"value": "Statistics"}, "evidence": "Proof",
         "evidence_file": {"name": "payload.html", "content_type": "text/html", "data_base64": base64.b64encode(b"Hello").decode()}})
     assert invalid.status_code == 400
