@@ -28,7 +28,7 @@ export function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-brand-soft via-canvas to-gold-soft px-4 py-10">
+    <div className="flex min-h-screen items-center justify-center px-4 py-10">
       <div className="w-full max-w-3xl">
         <div className="mb-8 flex flex-col items-center text-center">
           <Logo size="h-14 w-14" />
@@ -36,7 +36,7 @@ export function LoginPage() {
           <p className="mt-2 text-body">Community-backed scholarships for real academic progress.</p>
         </div>
 
-        <div className="card p-6 sm:p-8">
+        <div className="card liquid p-6 sm:p-8">
           <h2 className="font-display text-xl font-semibold text-ink">I am a…</h2>
           <div className="mt-4 grid gap-3 sm:grid-cols-3">
             {ROLES.map((r) => (

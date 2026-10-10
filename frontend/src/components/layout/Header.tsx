@@ -33,8 +33,8 @@ export function Header() {
   const me = users.find((u) => u.id === userId);
 
   return (
-    <header className="sticky top-0 z-20 border-b border-line bg-canvas/90 backdrop-blur">
-      <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-3 px-4 py-3">
+    <header className="sticky top-3 z-20 mx-auto max-w-7xl px-4">
+      <div className="glass liquid flex flex-wrap items-center gap-3 rounded-2xl px-4 py-2.5">
         <NavLink to="/" className="flex items-center gap-2.5">
           <Logo />
           <span className="hidden leading-tight md:block">

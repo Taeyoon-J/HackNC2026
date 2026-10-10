@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
+import { GlassBackdrop } from "./components/layout/GlassBackdrop";
 import { Header } from "./components/layout/Header";
 import { useMarketSocket, type SocketEvent } from "./hooks/useMarketSocket";
 import { AdminPricing } from "./pages/admin/AdminPricing";
@@ -47,14 +48,18 @@ export default function App() {
 
   if (!role) {
     return (
-      <Routes>
-        <Route path="*" element={<LoginPage />} />
-      </Routes>
+      <>
+        <GlassBackdrop />
+        <Routes>
+          <Route path="*" element={<LoginPage />} />
+        </Routes>
+      </>
     );
   }
 
   return (
     <div className="min-h-screen">
+      <GlassBackdrop />
       <Header />
       <main className="mx-auto max-w-7xl px-4 py-6">
         <Routes>
