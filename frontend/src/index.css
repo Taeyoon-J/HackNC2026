@@ -1,0 +1,51 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Nunito Sans", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-display: "Fraunces", Georgia, serif;
+
+  /* Warm paper neutrals */
+  --color-canvas: #faf7f2;
+  --color-surface: #ffffff;
+  --color-sunken: #f4efe7;
+  --color-line: #e8e1d6;
+  --color-ink: #1f2937;
+  --color-body: #3f4b5b;
+  --color-muted: #6b7280;
+  --color-faint: #a3a9b3;
+
+  /* Brand: calm teal */
+  --color-brand: #2f6f73;
+  --color-brand-strong: #255a5d;
+  --color-brand-soft: #e4f0ef;
+
+  /* Outcomes: soft green / terracotta rather than trading red-green */
+  --color-yes: #2f855a;
+  --color-yes-soft: #e3f2e9;
+  --color-no: #c0563b;
+  --color-no-soft: #f9e6e0;
+
+  /* Scholarship */
+  --color-gold: #b7791f;
+  --color-gold-soft: #fbf1dc;
+}
+
+body {
+  @apply bg-canvas font-sans text-body antialiased;
+}
+
+.card {
+  @apply rounded-2xl border border-line bg-surface shadow-[0_1px_2px_rgba(31,41,55,0.04)];
+}
+.card-title {
+  @apply text-xs font-bold uppercase tracking-wider text-muted;
+}
+.num {
+  font-variant-numeric: tabular-nums;
+}
+.btn {
+  @apply rounded-lg px-3 py-1.5 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-40;
+}
+.input {
+  @apply w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/15;
+}
