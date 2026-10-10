@@ -102,7 +102,7 @@ def _place(db, user_id, market_id, contract, action, order_type, price_cents, qu
 
 
 def _money(cents: int) -> str:
-    return f"{cents}¢" if cents < 100 else f"${cents / 100:,.2f}"
+    return f"${cents / 100:,.2f}"
 
 
 def _reject_self_cross(db, market_id, user_id, side, yes_price):

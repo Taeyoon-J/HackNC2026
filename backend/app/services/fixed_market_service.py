@@ -155,20 +155,27 @@ def migrate_admin_reserves(db):
         db.commit()
 
 
-def run_stale_market_liquidity(db, now=None):
-    """After 72 idle hours, quote modest student-progress-based treasury liquidity."""
+def run_stale_market_liquidity(db, now=None, *, force=False, market_ids=None):
+    """After 72 idle hours, quote modest student-progress-based treasury liquidity.
+
+    `force` skips the idle and cooldown checks (admin "provide liquidity now");
+    `market_ids` limits the run to specific markets. Returns one report row per quoted market."""
     from sqlalchemy import func
     from ..services.order_service import OPEN_STATUSES
     now = now or utcnow()
     cutoff = now - timedelta(days=3)
-    markets = db.scalars(select(Market).where(Market.total_supply == 100,
-        Market.status == "TRADING", Market.admin_reserve_shares > 0)).all()
-    quoted = 0
+    query = select(Market).where(Market.total_supply == 100, Market.status == "TRADING")
+    if not force:
+        query = query.where(Market.admin_reserve_shares > 0)
+    if market_ids is not None:
+        query = query.where(Market.id.in_(market_ids))
+    markets = db.scalars(query).all()
+    report = []
     for market in markets:
         last_trade = db.scalar(select(Trade.executed_at).where(Trade.market_id == market.id)
                                .order_by(Trade.executed_at.desc(), Trade.id.desc()).limit(1))
         idle_since = last_trade or market.created_at
-        if idle_since > cutoff or (market.last_auto_quote_at and market.last_auto_quote_at > cutoff):
+        if not force and (idle_since > cutoff or (market.last_auto_quote_at and market.last_auto_quote_at > cutoff)):
             continue
         for old in db.scalars(select(Order).where(Order.market_id == market.id,
                 Order.admin_backed.is_(True), Order.status.in_(OPEN_STATUSES))).all():
@@ -188,6 +195,15 @@ def run_stale_market_liquidity(db, now=None):
 
         treasury = order_service.position(db, "ADMIN", market.id, "YES")
         available = min(max(0, treasury.quantity - treasury.reserved_qty), market.admin_reserve_shares)
+        # Never cross the market makers' own resting orders (self-trade prevention).
+        alpha_bid = _own_best(db, market.id, "MM_ALPHA", "BID")
+        if alpha_bid is not None:
+            estimate = min(ceiling, max(estimate, alpha_bid + 1))
+        row = {"market_id": market.id, "student_id": market.student_id, "current_cents": current,
+               "share_value_cents": market.share_value_cents, "tick_cents": tick,
+               "progress_pct": round(progress_pct, 1) if progress_pct is not None else None,
+               "adjustment_cents": adjustment, "idle_hours": round((now - idle_since).total_seconds() / 3600, 1),
+               "ask_cents": None, "ask_qty": 0, "ask_filled": 0, "bid_cents": None, "bid_qty": 0, "bid_filled": 0}
         if available:
             moved_cost = treasury.cost_basis_cents * available // treasury.quantity if treasury.quantity else 0
             treasury.quantity -= available
@@ -195,18 +211,53 @@ def run_stale_market_liquidity(db, now=None):
             issuer = order_service.position(db, "MM_ALPHA", market.id, "YES")
             issuer.quantity += available
             issuer.cost_basis_cents += moved_cost
-            order_service._place(db, "MM_ALPHA", market.id, "YES", "SELL", "LIMIT",
-                                 estimate, available, now, admin_backed=True)
+            ask_order, _ = order_service._place(db, "MM_ALPHA", market.id, "YES", "SELL", "LIMIT",
+                                                estimate, available, now, admin_backed=True)
+            row.update(ask_cents=estimate, ask_qty=available, ask_filled=available - ask_order.remaining)
         beta_cash = ledger.wallet(db, "MM_BETA").available_cents
         bid = max(1, estimate - tick)
+        beta_ask = _own_best(db, market.id, "MM_BETA", "ASK")
+        if beta_ask is not None:
+            bid = max(1, min(bid, beta_ask - 1))
         buy_qty = min(30, beta_cash // bid)
         if buy_qty:
-            order_service._place(db, "MM_BETA", market.id, "YES", "BUY", "LIMIT", bid, buy_qty, now, admin_backed=True)
+            bid_order, _ = order_service._place(db, "MM_BETA", market.id, "YES", "BUY", "LIMIT", bid, buy_qty,
+                                                now, admin_backed=True)
+            row.update(bid_cents=bid, bid_qty=buy_qty, bid_filled=buy_qty - bid_order.remaining)
         market.last_auto_quote_at = now
-        quoted += 1
-    if quoted:
+        report.append(row)
+    if report:
         db.commit()
-    return quoted
+    return report
+
+
+def liquidity_status(db, market_ids=None):
+    """Markets where the market maker currently has resting quotes, with fill progress."""
+    from ..services.order_service import OPEN_STATUSES
+    query = select(Order).where(Order.admin_backed.is_(True), Order.status.in_(OPEN_STATUSES))
+    if market_ids is not None:
+        query = query.where(Order.market_id.in_(market_ids))
+    rows = {}
+    for o in db.scalars(query.order_by(Order.market_id)).all():
+        market = db.get(Market, o.market_id)
+        row = rows.setdefault(o.market_id, {
+            "market_id": o.market_id, "student_id": market.student_id, "current_cents": market.last_price_cents,
+            "share_value_cents": market.share_value_cents, "reserve_shares": market.admin_reserve_shares,
+            "quoted_at": o.created_at, "ask_cents": None, "ask_qty": 0, "ask_filled": 0,
+            "bid_cents": None, "bid_qty": 0, "bid_filled": 0})
+        side = "ask" if o.action == "SELL" else "bid"
+        row.update({f"{side}_cents": o.price_cents, f"{side}_qty": o.quantity, f"{side}_filled": o.quantity - o.remaining})
+    return list(rows.values())
+
+
+def _own_best(db, market_id, user_id, side):
+    """User's best resting price on one side of the book (highest bid / lowest ask)."""
+    from sqlalchemy import func
+    from ..services.order_service import OPEN_STATUSES
+    agg = func.max if side == "BID" else func.min
+    return db.scalar(select(agg(Order.yes_price_cents)).where(
+        Order.market_id == market_id, Order.user_id == user_id, Order.book_side == side,
+        Order.status.in_(OPEN_STATUSES)))
 
 
 def repair_registered_market(db, market, *, scholarship_cents, probability_percent):

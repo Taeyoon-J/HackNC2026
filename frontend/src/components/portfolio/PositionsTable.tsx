@@ -34,7 +34,7 @@ export function PositionsTable({ positions }: { positions: PositionRow[] }) {
                   {p.quantity}
                   {p.reserved_qty > 0 && <span className="text-muted"> ({p.reserved_qty} listed)</span>}
                 </td>
-                <td className="num px-2 py-2 text-right">{cents(p.avg_cost_cents, 2)}</td>
+                <td className="num px-2 py-2 text-right">{cents(p.avg_cost_cents)}</td>
                 <td className="num px-2 py-2 text-right">{cents(p.mark_cents)}</td>
                 <td className="num px-2 py-2 text-right">{usd(p.market_value_cents)}</td>
                 <td className={`num px-4 py-2 text-right ${p.unrealized_pnl_cents >= 0 ? "text-yes" : "text-no"}`}>

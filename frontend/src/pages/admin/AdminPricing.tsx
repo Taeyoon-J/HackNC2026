@@ -1,6 +1,7 @@
 import { useSearchParams } from "react-router-dom";
 import { MarketLifecycleControls } from "../../components/admin/MarketLifecycleControls";
 import { ScholarshipSummary } from "../../components/admin/ScholarshipSummary";
+import { MarketMakerPanel } from "../../components/admin/MarketMakerPanel";
 import { Link } from "react-router-dom";
 import { MarketStatusBadge } from "../../components/market/MarketStatusBadge";
 import { useMarket } from "../../hooks/queries";
@@ -55,6 +56,7 @@ export function AdminPricing() {
           <div className="space-y-4">
             <div className="px-1 font-display text-lg text-ink">{market.question}</div>
             <MarketLifecycleControls market={market} />
+            {market.status === "TRADING" && market.total_supply === 100 && <MarketMakerPanel marketId={market.id} />}
             <ScholarshipSummary market={market} />
             <Link to="/admin/verification" className="block text-sm font-semibold text-brand">Review final GPA and evidence in Verification →</Link>
             <StudentProfileCard key={market.student.id} studentId={market.student.id} threshold={market.threshold} admin />

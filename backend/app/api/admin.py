@@ -95,6 +95,77 @@ async def settle(market_id: str, db: Session = Depends(get_db)):
     return result
 
 
+class LiquidityRequest(BaseModel):
+    market_id: Optional[str] = None
+
+
+def _with_student(db, rows):
+    from ..models import Student
+    for row in rows:
+        row["student"] = ser.student_brief(db, db.get(Student, row.pop("student_id")))
+        if "quoted_at" in row:
+            row["quoted_at"] = ser.iso(row["quoted_at"])
+    return rows
+
+
+@router.post("/liquidity/run")
+async def run_liquidity(req: LiquidityRequest, db: Session = Depends(get_db)):
+    """Run the automatic market maker now, ignoring its 72-hour idle wait."""
+    from ..services.fixed_market_service import run_stale_market_liquidity
+    ids = [req.market_id] if req.market_id else None
+    if req.market_id:
+        market = market_service.get_market(db, req.market_id)
+        if market.status != "TRADING" or market.total_supply != 100:
+            raise DomainError("Liquidity can only be added to a trading market with issued shares")
+    report = run_stale_market_liquidity(db, force=True, market_ids=ids)
+    for market_id in ids or [ALL]:
+        await manager.broadcast("ORDERBOOK_UPDATED", market_id)
+    return {"quoted": _with_student(db, report)}
+
+
+@router.get("/liquidity/queue")
+async def liquidity_queue(limit: int = 5, db: Session = Depends(get_db)):
+    """Next trading markets for the market maker: never/least recently quoted first."""
+    from sqlalchemy import nulls_first
+    rows = db.scalars(select(Market).where(Market.status == "TRADING", Market.total_supply == 100)
+                      .order_by(nulls_first(Market.last_auto_quote_at.asc()), Market.id)
+                      .limit(max(1, min(limit, 20)))).all()
+    return [{"market_id": m.id, "student": ser.student_brief(db, db.get(Student, m.student_id))} for m in rows]
+
+
+@router.get("/liquidity")
+async def liquidity(market_id: Optional[str] = None, db: Session = Depends(get_db)):
+    """Resting market-maker quotes per student."""
+    from ..services.fixed_market_service import liquidity_status
+    return _with_student(db, liquidity_status(db, [market_id] if market_id else None))
+
+
+class SimulationRequest(BaseModel):
+    minutes: int = Field(default=10, ge=1, le=30)
+    nessie: bool = True
+
+
+@router.post("/simulation/start")
+async def start_simulation(req: SimulationRequest):
+    """Start the live A–E trading simulation (default 10 minutes)."""
+    from ..services.simulation import simulation
+    await simulation.start(req.minutes, req.nessie)
+    return simulation.status()
+
+
+@router.post("/simulation/stop")
+async def stop_simulation():
+    from ..services.simulation import simulation
+    await simulation.stop()
+    return simulation.status()
+
+
+@router.get("/simulation")
+async def simulation_status():
+    from ..services.simulation import simulation
+    return simulation.status()
+
+
 @router.get("/invariants")
 async def check_invariants(db: Session = Depends(get_db)):
     return invariants.check_all(db)

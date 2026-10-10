@@ -182,3 +182,12 @@ class Favorite(Base):
     __tablename__ = "favorites"
     user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), primary_key=True)
     market_id: Mapped[str] = mapped_column(ForeignKey("markets.id"), primary_key=True)
+
+
+class NessieAccount(Base):
+    """Capital One Nessie customer/account mirroring a simulation participant's cash."""
+    __tablename__ = "nessie_accounts"
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), primary_key=True)
+    customer_id: Mapped[str]
+    account_id: Mapped[str]
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)

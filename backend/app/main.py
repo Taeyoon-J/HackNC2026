@@ -21,6 +21,8 @@ async def lifespan(_: FastAPI):
     try:
         yield
     finally:
+        from .services.simulation import simulation
+        await simulation.stop()
         task.cancel()
         try:
             await task

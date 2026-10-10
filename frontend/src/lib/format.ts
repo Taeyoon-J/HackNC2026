@@ -10,8 +10,8 @@ export const usd = (cents: number | null | undefined, digits = 2) =>
         maximumFractionDigits: digits,
       });
 
-export const cents = (c: number | null | undefined, digits = 0) =>
-  c == null ? "—" : `${c.toFixed(digits)}¢`;
+/** Cent amounts (possibly fractional, e.g. an average cost) shown as dollars. */
+export const cents = (c: number | null | undefined) => (c == null ? "—" : usd(Math.round(c)));
 
 export const pct = (p: number | null | undefined) => (p == null ? "—" : `${(p * 100).toFixed(1)}%`);
 
@@ -41,9 +41,8 @@ export function scholarshipFor(probability: number) {
   return Math.min(3000, Math.round(1000 * (0.5 / p) ** 0.75 * 100) / 100);
 }
 
-/** Share price: ¢ below $1 (legacy markets), dollars otherwise. */
-export const price = (c: number | null | undefined) =>
-  c == null ? "—" : c < 100 ? `${Math.round(c)}¢` : usd(c);
+/** Share price in dollars (amounts are stored in cents). */
+export const price = (c: number | null | undefined) => (c == null ? "—" : usd(c));
 
 /** Community forecast in percent: last price relative to the value of a share. */
 export const chance = (m: { last_price: number | null; share_value_cents?: number }) =>

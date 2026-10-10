@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { api } from "../../api/client";
 import type { Market } from "../../api/types";
 import { useAction } from "../../hooks/queries";
-import { pct, scholarshipFor, usd } from "../../lib/format";
+import { pct, scholarshipFor, usd, price } from "../../lib/format";
 
 export function ScholarshipLockPanel({ market }: { market: Market }) {
   const enabled = market.status === "PRICE_DISCOVERY";
@@ -42,7 +42,7 @@ export function ScholarshipLockPanel({ market }: { market: Market }) {
         <>
           {preview && (
             <div className="mb-3 grid grid-cols-3 gap-2 text-xs">
-              <Info label="24h VWAP" value={preview.vwap_24h != null ? `${preview.vwap_24h.toFixed(2)}¢` : "—"} />
+              <Info label="24h VWAP" value={price(preview.vwap_24h)} />
               <Info label="24h trades" value={`${preview.trades_24h} / ${preview.volume_24h} contracts`} />
               <Info
                 label="Sufficient?"

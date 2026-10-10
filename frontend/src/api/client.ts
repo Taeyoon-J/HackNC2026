@@ -11,6 +11,9 @@ import type {
   StudentProfile,
   Trade,
   User,
+  LiquidityRow,
+  SimulationStatus,
+  StudentBrief,
   MyStudent,
   AdminStudent,
   DisclosureType,
@@ -130,6 +133,16 @@ export const api = {
       request<Market>("POST", `/api/admin/markets/${id}/resolve`, { value }),
     settle: (id: string) => request<unknown>("POST", `/api/admin/markets/${id}/settle`),
     invariants: () => request<InvariantCheck[]>("GET", "/api/admin/invariants"),
+    runLiquidity: (marketId?: string) =>
+      request<{ quoted: LiquidityRow[] }>("POST", "/api/admin/liquidity/run", { market_id: marketId ?? null }),
+    liquidityQueue: (limit = 5) =>
+      request<{ market_id: string; student: StudentBrief }[]>("GET", `/api/admin/liquidity/queue?limit=${limit}`),
+    liquidity: (marketId?: string) =>
+      request<LiquidityRow[]>("GET", `/api/admin/liquidity${marketId ? `?market_id=${encodeURIComponent(marketId)}` : ""}`),
+    simulation: () => request<SimulationStatus>("GET", "/api/admin/simulation"),
+    startSimulation: (o: { minutes: number; nessie: boolean }) =>
+      request<SimulationStatus>("POST", "/api/admin/simulation/start", o),
+    stopSimulation: () => request<SimulationStatus>("POST", "/api/admin/simulation/stop"),
     reset: () => request<unknown>("POST", "/api/admin/reset"),
   },
 };

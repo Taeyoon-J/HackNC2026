@@ -90,3 +90,14 @@ html.liquid-ok .liquid {
     transform: translate3d(6vw, 4vh, 0) scale(1.12);
   }
 }
+
+/* Market-maker report rows slide in as each market is quoted. */
+.mm-in {
+  animation: mm-in 0.45s ease-out;
+}
+@keyframes mm-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}

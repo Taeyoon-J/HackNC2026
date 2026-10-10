@@ -255,3 +255,52 @@ export interface VerificationInput { type: VerificationType; payload: Verificati
 export interface VerificationPage { items: Verification[]; total: number; page: number; page_size: number }
 export interface Account { user_id: string; username: string; has_password: boolean }
 export interface GpaAverage { term: string; gpa: number; students: number }
+
+/** One market's market-maker quotes (prices in cents). */
+export interface LiquidityRow {
+  market_id: string;
+  student: StudentBrief;
+  current_cents: number | null;
+  share_value_cents: number;
+  ask_cents: number | null;
+  ask_qty: number;
+  ask_filled: number;
+  bid_cents: number | null;
+  bid_qty: number;
+  bid_filled: number;
+  /** Present on a run report. */
+  tick_cents?: number;
+  progress_pct?: number | null;
+  adjustment_cents?: number;
+  idle_hours?: number;
+  /** Present on the status list. */
+  reserve_shares?: number;
+  quoted_at?: string;
+}
+
+export interface SimulationEvent {
+  id: number;
+  time: string;
+  market_id: string;
+  student: string;
+  buyer: string;
+  seller: string;
+  quantity: number;
+  price_cents: number;
+  amount_cents: number;
+  /** "off" | "queued" | "failed" | Nessie transfer id */
+  nessie: string;
+}
+
+export interface SimulationStatus {
+  running: boolean;
+  minutes: number;
+  started_at: string | null;
+  remaining_seconds: number;
+  trades: number;
+  quotes: number;
+  volume_cents: number;
+  nessie: { enabled: boolean; configured: boolean; ok: number; failed: number; queued: number; error: string | null };
+  markets: { market_id: string; student: string; price_cents: number | null; start_cents: number | null; share_value_cents: number }[];
+  events: SimulationEvent[];
+}

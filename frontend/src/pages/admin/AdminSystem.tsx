@@ -1,6 +1,8 @@
 import { api } from "../../api/client";
 import { DemoGuide } from "../../components/admin/DemoGuide";
 import { InvariantsPanel } from "../../components/admin/InvariantsPanel";
+import { MarketMakerPanel } from "../../components/admin/MarketMakerPanel";
+import { SimulationPanel } from "../../components/admin/SimulationPanel";
 import { useAction } from "../../hooks/queries";
 
 export function AdminSystem() {
@@ -20,6 +22,8 @@ export function AdminSystem() {
           {reset.isPending ? "Resetting…" : "Reset demo data"}
         </button>
       </div>
+      <SimulationPanel />
+      <MarketMakerPanel />
       <div className="grid gap-4 lg:grid-cols-2">
         <DemoGuide />
         <InvariantsPanel />

@@ -68,3 +68,30 @@ def test_goal_missed_pays_final_price_times_shares(priced):
     expected = settled["final_price"] * 100
     assert as_user(priced, "STUDENT_A")("GET", "/api/me/student").json()["wallet_cents"] == expected
     assert_invariants(priced)
+
+
+def test_admin_liquidity_run_reports_and_lists_quotes(priced):
+    admin = as_user(priced, "ADMIN")
+    assert as_user(priced, "TRADER_A")("POST", "/api/admin/liquidity/run", json={}).status_code == 403
+    report = admin("POST", "/api/admin/liquidity/run", json={"market_id": "STU002-GPA-2026F"}).json()["quoted"]
+    assert len(report) == 1 and report[0]["student"]["name"] == "Student B"
+    row = report[0]
+    if row["ask_qty"]:
+        assert row["ask_cents"] >= row["current_cents"] + row["tick_cents"] + row["adjustment_cents"]
+    # Running again replaces, rather than stacks, the market maker's quotes.
+    admin("POST", "/api/admin/liquidity/run", json={"market_id": "STU002-GPA-2026F"})
+    resting = admin("GET", "/api/admin/liquidity?market_id=STU002-GPA-2026F").json()
+    assert len(resting) == 1 and resting[0]["market_id"] == "STU002-GPA-2026F"
+    assert_invariants(priced)
+
+
+def test_live_simulation_trades_without_nessie(priced):
+    import time
+    admin = as_user(priced, "ADMIN")
+    assert admin("POST", "/api/admin/simulation/start", json={"minutes": 1, "nessie": False}).status_code == 200
+    assert admin("POST", "/api/admin/simulation/start", json={"minutes": 1, "nessie": False}).status_code == 400
+    time.sleep(6)
+    status = admin("POST", "/api/admin/simulation/stop").json()
+    assert not status["running"] and len(status["markets"]) == 5
+    assert all(e["nessie"] == "off" for e in status["events"])
+    assert_invariants(priced)

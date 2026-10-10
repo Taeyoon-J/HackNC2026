@@ -30,9 +30,8 @@ export function OrderPanel({ market, price, onPriceChange }: Props) {
 
   const shareValue = market.share_value_cents || 100;
   const ceiling = shareValue - 1;
-  // Legacy $1 shares are entered in cents; scholarship-priced shares in dollars ($1 steps).
-  const dollars = shareValue > 100;
-  const step = dollars ? 100 : 1;
+  // Prices are entered in dollars; +/- moves $1 on scholarship-priced shares, 1¢ on legacy $1 shares.
+  const step = shareValue > 100 ? 100 : 1;
   const clampPrice = (p: number) => Math.min(ceiling, Math.max(1, Math.round(p)));
   const effPrice = orderType === "MARKET" ? (action === "BUY" ? ceiling : 1) : price;
   const total = effPrice * quantity;
@@ -84,17 +83,17 @@ export function OrderPanel({ market, price, onPriceChange }: Props) {
 
       <div className="mt-4 space-y-3">
         {orderType === "LIMIT" && (
-          <Field label={`${contract} limit price (${dollars ? "$" : "¢"})`}>
+          <Field label={`${contract} limit price ($)`}>
             <div className="flex gap-1">
               <StepButton onClick={() => onPriceChange(clampPrice(price - step))}>−</StepButton>
               <input
                 type="number"
-                min={dollars ? 0.01 : 1}
-                max={dollars ? ceiling / 100 : ceiling}
-                step={dollars ? 0.01 : 1}
+                min={0.01}
+                max={ceiling / 100}
+                step={0.01}
                 className="input num text-center"
-                value={dollars ? price / 100 : price}
-                onChange={(e) => onPriceChange(clampPrice((Number(e.target.value) || 0) * (dollars ? 100 : 1)))}
+                value={price / 100}
+                onChange={(e) => onPriceChange(clampPrice((Number(e.target.value) || 0) * 100))}
               />
               <StepButton onClick={() => onPriceChange(clampPrice(price + step))}>+</StepButton>
             </div>
