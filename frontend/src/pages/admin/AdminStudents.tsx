@@ -1,16 +1,20 @@
 import { Link } from "react-router-dom";
+import { useState } from "react";
 import { api } from "../../api/client";
 import type { AdminStudent } from "../../api/types";
 import { MarketStatusBadge } from "../../components/market/MarketStatusBadge";
-import { useAction, useAdminStudents } from "../../hooks/queries";
+import { useAction } from "../../hooks/queries";
+import { DirectoryPagination, DirectorySearch, useDirectory } from "../../components/student/DirectorySearch";
+import { StudentProfileCard } from "../../components/student/StudentProfileCard";
 
 export function AdminStudents() {
-  const { data: students = [] } = useAdminStudents();
+  const directory = useDirectory("admin-students-directory", api.admin.searchStudents);
+  const students = directory.data?.items ?? [];
+  const [selected, setSelected] = useState<string | null>(null);
   const verify = useAction(api.admin.verifyStudent);
   const delist = useAction(api.admin.delistStudent);
   const restore = useAction(api.admin.restoreStudent);
-  const error = verify.error ?? delist.error ?? restore.error;
-  const queue = students.filter((s) => !s.verified || s.pending_disclosures > 0);
+  const error = verify.error ?? delist.error ?? restore.error ?? directory.error;
 
   return (
     <div className="space-y-4">
@@ -20,12 +24,21 @@ export function AdminStudents() {
           <p className="text-sm text-muted">Verify records and control who is listed to traders.</p>
         </div>
         <div className="flex gap-3 text-sm">
-          <Count label="Total" value={students.length} />
-          <Count label="Needs review" value={queue.length} tone="text-gold" />
-          <Count label="Delisted" value={students.filter((s) => s.status === "DELISTED").length} tone="text-no" />
+          <Count label="Total" value={directory.data?.total_all ?? 0} />
+          <Count label="Needs review" value={directory.data?.summary.needs_review ?? 0} tone="text-gold" />
+          <Count label="Delisted" value={directory.data?.summary.delisted ?? 0} tone="text-no" />
         </div>
       </div>
       {error && <p className="rounded-xl bg-no-soft px-4 py-2 text-sm text-no">{error.message}</p>}
+
+      <DirectorySearch directory={directory} states={[{ value: "REVIEW", label: "Needs review" }, { value: "ACTIVE", label: "Listed" }, { value: "DELISTED", label: "Delisted" }]} />
+      {selected && <section className="space-y-2">
+        <div className="flex justify-between"><h2 className="font-semibold text-ink">Student profile & records</h2>
+          <button type="button" className="text-sm text-brand" onClick={() => setSelected(null)}>Close profile</button></div>
+        <StudentProfileCard key={selected} studentId={selected} admin />
+      </section>}
+      {directory.isLoading && <p className="text-sm text-muted">Loading students…</p>}
+      {!directory.isLoading && students.length === 0 && <p className="text-sm text-muted">No students match your search.</p>}
 
       <div className="card overflow-x-auto">
         <table className="w-full text-sm">
@@ -44,6 +57,7 @@ export function AdminStudents() {
               <Row
                 key={s.id}
                 s={s}
+                onView={() => setSelected(s.id)}
                 busy={verify.isPending || delist.isPending || restore.isPending}
                 onVerify={() => verify.mutate(s.id)}
                 onDelist={() => confirm(`Remove ${s.name} from the trader listing? Open orders will be cancelled.`) && delist.mutate(s.id)}
@@ -53,12 +67,13 @@ export function AdminStudents() {
           </tbody>
         </table>
       </div>
+      <DirectoryPagination directory={directory} />
     </div>
   );
 }
 
-function Row({ s, busy, onVerify, onDelist, onRestore }: {
-  s: AdminStudent; busy: boolean; onVerify: () => void; onDelist: () => void; onRestore: () => void;
+function Row({ s, busy, onView, onVerify, onDelist, onRestore }: {
+  s: AdminStudent; busy: boolean; onView: () => void; onVerify: () => void; onDelist: () => void; onRestore: () => void;
 }) {
   const needsReview = !s.verified || s.pending_disclosures > 0;
   const delisted = s.status === "DELISTED";
@@ -70,10 +85,11 @@ function Row({ s, busy, onVerify, onDelist, onRestore }: {
             {s.name.replace("Student ", "")}
           </span>
           <div>
-            <div className="font-semibold text-ink">{s.name}</div>
+            <button type="button" className="font-semibold text-brand hover:underline" onClick={onView}>{s.name}</button>
             <div className="font-mono text-[11px] text-muted">{s.id}</div>
           </div>
         </div>
+        {s.introduction && <p className="mt-2 max-w-xs line-clamp-2 text-xs text-muted">{s.introduction}</p>}
       </td>
       <td className="px-3 py-3 text-xs">
         <div className="text-body">{s.university}</div>

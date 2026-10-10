@@ -17,12 +17,24 @@ def check_all(db: Session) -> list[dict]:
     total = db.scalar(select(func.coalesce(func.sum(LedgerEntry.amount_cents), 0)))
     add("Ledger sums to zero", total == 0, f"sum={total}")
 
+    # Aggregate once so checking a thousand students does not issue thousands
+    # of tiny SQLite queries. Missing accounts/positions have a zero balance.
+    balances = dict(db.execute(select(LedgerEntry.account, func.sum(LedgerEntry.amount_cents))
+                               .group_by(LedgerEntry.account)).all())
+    supplies = {(mid, contract): qty for mid, contract, qty in db.execute(
+        select(Position.market_id, Position.contract, func.sum(Position.quantity))
+        .group_by(Position.market_id, Position.contract)).all()}
+    buy_reservations = dict(db.execute(select(Order.user_id, func.sum(Order.remaining * Order.price_cents))
+        .where(Order.action == BUY, Order.status.in_(OPEN_STATUSES)).group_by(Order.user_id)).all())
+    sell_reservations = {(uid, mid, contract): qty for uid, mid, contract, qty in db.execute(
+        select(Order.user_id, Order.market_id, Order.contract, func.sum(Order.remaining))
+        .where(Order.action == SELL, Order.status.in_(OPEN_STATUSES))
+        .group_by(Order.user_id, Order.market_id, Order.contract)).all()}
+
     for m in db.scalars(select(Market).order_by(Market.id)).all():
-        yes = db.scalar(select(func.coalesce(func.sum(Position.quantity), 0))
-                        .where(Position.market_id == m.id, Position.contract == YES))
-        no = db.scalar(select(func.coalesce(func.sum(Position.quantity), 0))
-                       .where(Position.market_id == m.id, Position.contract == NO))
-        coll = ledger.balance(db, ledger.collateral_account(m.id))
+        yes = supplies.get((m.id, YES), 0)
+        no = supplies.get((m.id, NO), 0)
+        coll = balances.get(ledger.collateral_account(m.id), 0)
         if m.status == "SETTLED":
             add(f"{m.id}: collateral is 0 after settlement", coll == 0 and m.collateral_cents == 0, f"collateral={coll}")
         else:
@@ -33,20 +45,15 @@ def check_all(db: Session) -> list[dict]:
 
     bad_wallets = []
     for w in db.scalars(select(Wallet)).all():
-        bal = ledger.balance(db, ledger.user_account(w.user_id))
-        reserved = db.scalar(select(func.coalesce(func.sum(Order.remaining * Order.price_cents), 0))
-                             .where(Order.user_id == w.user_id, Order.action == BUY,
-                                    Order.status.in_(OPEN_STATUSES)))
+        bal = balances.get(ledger.user_account(w.user_id), 0)
+        reserved = buy_reservations.get(w.user_id, 0)
         if bal != w.available_cents + w.reserved_cents or reserved != w.reserved_cents or w.available_cents < 0:
             bad_wallets.append(w.user_id)
     add("Wallets match ledger; reserved = open buy orders", not bad_wallets, ", ".join(bad_wallets))
 
     bad_positions = []
     for p in db.scalars(select(Position)).all():
-        reserved = db.scalar(select(func.coalesce(func.sum(Order.remaining), 0))
-                             .where(Order.user_id == p.user_id, Order.market_id == p.market_id,
-                                    Order.contract == p.contract, Order.action == SELL,
-                                    Order.status.in_(OPEN_STATUSES)))
+        reserved = sell_reservations.get((p.user_id, p.market_id, p.contract), 0)
         if reserved != p.reserved_qty or p.reserved_qty > p.quantity or p.quantity < 0:
             bad_positions.append(f"{p.user_id}/{p.market_id}/{p.contract}")
     add("Holdings ≥ sell reservations; no negative positions", not bad_positions, ", ".join(bad_positions))

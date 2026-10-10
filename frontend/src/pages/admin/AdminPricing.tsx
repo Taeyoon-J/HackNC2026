@@ -3,12 +3,18 @@ import { MarketLifecycleControls } from "../../components/admin/MarketLifecycleC
 import { ResolvePanel } from "../../components/admin/ResolvePanel";
 import { ScholarshipLockPanel } from "../../components/admin/ScholarshipLockPanel";
 import { MarketStatusBadge } from "../../components/market/MarketStatusBadge";
-import { useAdminMarkets } from "../../hooks/queries";
+import { useMarket } from "../../hooks/queries";
+import { api } from "../../api/client";
+import { DirectoryPagination, DirectorySearch, MARKET_STATES, useDirectory } from "../../components/student/DirectorySearch";
+import { StudentProfileCard } from "../../components/student/StudentProfileCard";
 
 export function AdminPricing() {
   const [params, setParams] = useSearchParams();
-  const { data: markets = [] } = useAdminMarkets();
-  const market = markets.find((m) => m.id === params.get("market")) ?? markets[0];
+  const directory = useDirectory("admin-markets-directory", api.admin.searchMarkets);
+  const markets = directory.data?.items ?? [];
+  const requestedId = params.get("market") ?? "";
+  const { data: requested, error: requestedError } = useMarket(requestedId);
+  const market = requestedId ? markets.find((m) => m.id === requestedId) ?? requested : markets[0];
 
   return (
     <div className="space-y-4">
@@ -16,8 +22,12 @@ export function AdminPricing() {
         <h1 className="font-display text-2xl font-semibold text-ink">Pricing & outcomes</h1>
         <p className="text-sm text-muted">Open goals, lock scholarship amounts, verify results and settle.</p>
       </div>
+      <DirectorySearch directory={directory} states={MARKET_STATES} />
+      {(directory.error ?? requestedError) && <p className="text-sm text-no">{(directory.error ?? requestedError)?.message}</p>}
       <div className="grid gap-4 lg:grid-cols-[280px_1fr]">
         <div className="card self-start p-2">
+          {directory.isLoading && <p className="p-3 text-sm text-muted">Loading goals…</p>}
+          {!directory.isLoading && markets.length === 0 && <p className="p-3 text-sm text-muted">No goals match your search.</p>}
           {markets.map((m) => (
             <button
               key={m.id}
@@ -39,6 +49,7 @@ export function AdminPricing() {
               <MarketStatusBadge status={m.status} />
             </button>
           ))}
+          <DirectoryPagination directory={directory} />
         </div>
         {market && (
           <div className="space-y-4">
@@ -48,6 +59,7 @@ export function AdminPricing() {
               <ScholarshipLockPanel market={market} />
               <ResolvePanel market={market} />
             </div>
+            <StudentProfileCard key={market.student.id} studentId={market.student.id} threshold={market.threshold} admin />
           </div>
         )}
       </div>

@@ -3,6 +3,7 @@ import { api } from "../../api/client";
 import type { Disclosure, DisclosureType } from "../../api/types";
 import { useAction } from "../../hooks/queries";
 import { dateShort } from "../../lib/format";
+import { TranscriptEditor } from "./TranscriptEditor";
 
 type Row = Record<string, string>;
 
@@ -25,6 +26,12 @@ interface Spec {
 const num = (v: string) => (v.trim() === "" ? 0 : Number(v));
 
 const SPECS: Record<DisclosureType, Spec> = {
+  BIOGRAPHY: {
+    title: "About me & personal statement", hint: "Self-reported profile text.",
+    columns: [{ key: "introduction", label: "Introduction" }, { key: "pitch", label: "Personal statement" }],
+    toRows: (d) => [{ introduction: d?.introduction ?? "", pitch: d?.pitch ?? "" }],
+    fromRows: (rows) => rows[0] ?? { introduction: "", pitch: "" },
+  },
   GPA_HISTORY: {
     title: "Term GPA",
     hint: "Upload transcripts to your advisor; an admin verifies these numbers.",
@@ -55,7 +62,7 @@ const SPECS: Record<DisclosureType, Spec> = {
     fromRows: (rows) => ({ items: rows.map((r) => r.text) }),
   },
   APPLICATION: {
-    title: "Applications & awards",
+    title: "Achievements & awards",
     hint: "Internships, scholarships, honors and their results.",
     columns: [
       { key: "name", label: "Program", placeholder: "Dean's List" },
@@ -67,6 +74,11 @@ const SPECS: Record<DisclosureType, Spec> = {
 };
 
 export function RecordEditor({ type, disclosure }: { type: DisclosureType; disclosure?: Disclosure }) {
+  if (type === "GPA_HISTORY") return <TranscriptEditor disclosure={disclosure} />;
+  return <SimpleRecordEditor type={type} disclosure={disclosure} />;
+}
+
+function SimpleRecordEditor({ type, disclosure }: { type: DisclosureType; disclosure?: Disclosure }) {
   const spec = SPECS[type];
   const [rows, setRows] = useState<Row[]>(() => spec.toRows(disclosure?.data));
   const [dirty, setDirty] = useState(false);

@@ -1,8 +1,15 @@
-import { useStudent } from "../../hooks/queries";
+import { useQuery } from "@tanstack/react-query";
+import { api } from "../../api/client";
+import type { StudentProfile, AdminStudentDetail } from "../../api/types";
 import { DisclosureList } from "./DisclosureList";
+import { PersonalStatement } from "./PersonalStatement";
 
-export function StudentProfileCard({ studentId, threshold }: { studentId: string; threshold?: number }) {
-  const { data: s } = useStudent(studentId);
+export function StudentProfileCard({ studentId, threshold, admin = false }: { studentId: string; threshold?: number; admin?: boolean }) {
+  const { data: s, error } = useQuery<StudentProfile | AdminStudentDetail>({
+    queryKey: [admin ? "admin-student" : "student", studentId],
+    queryFn: () => admin ? api.admin.student(studentId) : api.student(studentId),
+  });
+  if (error) return <p className="text-sm text-no">{error.message}</p>;
   if (!s) return <div className="card h-64 animate-pulse" />;
   return (
     <div className="card p-5">
@@ -20,9 +27,10 @@ export function StudentProfileCard({ studentId, threshold }: { studentId: string
           </div>
         </div>
       </div>
+      <PersonalStatement student={s} />
       <div className="card-title mb-3">Disclosures</div>
       <DisclosureList disclosures={s.disclosures} threshold={threshold} />
-      <p className="mt-4 text-[10px] text-faint">Identity is withheld; only consented, verified records are shown. Demo data is synthetic.</p>
+      <p className="mt-4 text-[10px] text-faint">{admin ? "Admin view includes records awaiting verification. " : "Academic records require verification. "}Personal statements are self-reported. All demo data is synthetic.</p>
     </div>
   );
 }

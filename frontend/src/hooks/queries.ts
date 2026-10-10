@@ -4,7 +4,7 @@ import { useSession } from "../store/user";
 
 export const useUsers = () => useQuery({ queryKey: ["users"], queryFn: api.users });
 export const useMarkets = () => useQuery({ queryKey: ["markets"], queryFn: api.markets });
-export const useMarket = (id: string) => useQuery({ queryKey: ["market", id], queryFn: () => api.market(id) });
+export const useMarket = (id: string) => useQuery({ queryKey: ["market", id], queryFn: () => api.market(id), enabled: !!id });
 export const useOrderBook = (id: string) =>
   useQuery({ queryKey: ["market", id, "orderbook"], queryFn: () => api.orderbook(id) });
 export const useTrades = (id: string) =>

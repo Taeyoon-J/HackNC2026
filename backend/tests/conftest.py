@@ -16,7 +16,7 @@ M1 = "STU001-GPA-2026F"
 
 @pytest.fixture
 def client():
-    reset_and_seed()
+    reset_and_seed(full_cohort=False)
     with TestClient(app) as c:
         yield c
 

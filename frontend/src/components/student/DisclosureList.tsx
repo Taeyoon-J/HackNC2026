@@ -5,13 +5,14 @@ import { GpaHistoryChart } from "./GpaHistoryChart";
 export function DisclosureList({ disclosures, threshold }: { disclosures: Disclosure[]; threshold?: number }) {
   return (
     <div className="space-y-4">
-      {disclosures.map((d) => (
+      {disclosures.filter((d) => d.type !== "BIOGRAPHY").map((d) => (
         <section key={d.id}>
           <div className="mb-1 flex items-center justify-between">
             <h3 className="text-sm font-medium text-ink">{d.title}</h3>
             {d.verified_at && (
               <span className="shrink-0 whitespace-nowrap text-[10px] text-yes">✓ Verified {dateShort(d.verified_at)}</span>
             )}
+            {!d.verified_at && <span className="text-[10px] text-gold">Pending verification</span>}
           </div>
           <DisclosureBody d={d} threshold={threshold} />
         </section>
@@ -23,7 +24,19 @@ export function DisclosureList({ disclosures, threshold }: { disclosures: Disclo
 function DisclosureBody({ d, threshold }: { d: Disclosure; threshold?: number }) {
   switch (d.type) {
     case "GPA_HISTORY":
-      return <GpaHistoryChart terms={d.data.terms} threshold={threshold} />;
+      return <div className="space-y-3">
+        {d.data.terms.length > 0 ? <GpaHistoryChart terms={d.data.terms} threshold={threshold} />
+          : <p className="text-xs text-muted">No completed semesters yet.</p>}
+        {d.data.terms.map((term: any) => <details key={term.term} className="rounded-lg border border-line p-3">
+          <summary className="cursor-pointer text-xs font-semibold text-ink">{term.term} · GPA {Number(term.gpa).toFixed(2)} · {term.credits} credits</summary>
+          {term.courses?.length ? <div className="mt-2 overflow-x-auto"><table className="w-full text-xs">
+            <thead><tr className="text-left text-muted"><th className="py-1">Course</th><th>Credits</th><th>GPA</th></tr></thead>
+            <tbody>{term.courses.map((c: any) => <tr key={c.code} className="border-t border-line">
+              <td className="py-2"><span className="font-mono text-muted">{c.code}</span> {c.name}</td><td>{c.credits}</td><td>{Number(c.gpa).toFixed(2)}</td>
+            </tr>)}</tbody>
+          </table></div> : <p className="mt-2 text-xs text-muted">Course breakdown not provided.</p>}
+        </details>)}
+      </div>;
     case "COURSE_LOAD": {
       const courses = d.data.courses as { code: string; name: string; credits: number }[];
       const total = courses.reduce((s, c) => s + c.credits, 0);

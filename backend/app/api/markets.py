@@ -10,17 +10,17 @@ from ..services import market_service
 from ..services.matching_engine import aggregate_levels
 from ..services.order_service import OPEN_STATUSES
 from . import serializers as ser
+from .directory import DirectoryParams, directory_page
 
 router = APIRouter(prefix="/api/markets", tags=["markets"])
 
 
 @router.get("")
-async def list_markets(db: Session = Depends(get_db)):
+async def list_markets(params: DirectoryParams = Depends(), db: Session = Depends(get_db)):
     """Public directory: hides draft goals and delisted students."""
-    rows = db.scalars(select(Market).join(Student, Student.id == Market.student_id)
-                      .where(Market.status != "DRAFT", Student.status == "ACTIVE")
-                      .order_by(Market.id)).all()
-    return [ser.market(db, m) for m in rows]
+    stmt = select(Market).join(Student, Student.id == Market.student_id).where(
+        Market.status != "DRAFT", Student.status == "ACTIVE", Student.verified.is_(True))
+    return directory_page(db, stmt, params, ser.market, markets=True)
 
 
 @router.get("/{market_id}")

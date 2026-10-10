@@ -65,14 +65,20 @@ export function LoginPage() {
 }
 
 function AccountPicker({ role, onPick }: { role: Role; onPick: (id: string) => void }) {
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
   const { data: users = [] } = useUsers();
   // Market-maker bots seed liquidity; they are not demo personas.
   const accounts = users.filter((u) => u.role === role && !u.id.startsWith("MM_"));
+  const matching = accounts.filter((u) => `${u.id} ${u.display_name}`.toLowerCase().includes(search.toLowerCase()));
   return (
     <div className="mt-6 border-t border-line pt-5">
       <div className="card-title mb-3">Continue as</div>
+      {role === "STUDENT" && <label className="mb-3 block text-xs text-muted">Find your demo account
+        <input type="search" className="input mt-1" value={search} placeholder="Student name or account ID"
+          onChange={(e) => { setSearch(e.target.value); setPage(1); }} /></label>}
       <div className="flex flex-wrap gap-2">
-        {accounts.map((u) => (
+        {matching.slice((page - 1) * 20, page * 20).map((u) => (
           <button
             key={u.id}
             type="button"
@@ -83,6 +89,12 @@ function AccountPicker({ role, onPick }: { role: Role; onPick: (id: string) => v
           </button>
         ))}
       </div>
+      {matching.length === 0 && <p className="text-sm text-muted">No accounts found.</p>}
+      {matching.length > 20 && <div className="mt-3 flex items-center justify-between text-xs text-muted">
+        <button type="button" className="btn" disabled={page === 1} onClick={() => setPage(page - 1)}>Previous</button>
+        <span>{matching.length} accounts · Page {page} of {Math.ceil(matching.length / 20)}</span>
+        <button type="button" className="btn" disabled={page * 20 >= matching.length} onClick={() => setPage(page + 1)}>Next</button>
+      </div>}
     </div>
   );
 }

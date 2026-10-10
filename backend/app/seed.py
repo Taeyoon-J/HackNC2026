@@ -79,11 +79,14 @@ def is_seeded() -> bool:
         return db.scalar(select(User).limit(1)) is not None
 
 
-def reset_and_seed() -> None:
+def reset_and_seed(*, full_cohort=True) -> None:
     Base.metadata.drop_all(engine)
     Base.metadata.create_all(engine)
     with SessionLocal() as db:
         seed(db, utcnow())
+        if full_cohort:
+            from .demo_data import populate_cohort
+            populate_cohort(db, utcnow())
 
 
 def seed(db, now: datetime) -> None:

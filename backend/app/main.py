@@ -12,6 +12,11 @@ from .realtime.ws_manager import ALL, manager
 async def lifespan(_: FastAPI):
     from .seed import is_seeded, reset_and_seed
     Base.metadata.create_all(engine)
+    # create_all leaves existing tables intact; add the directory lookup index
+    # to demo databases created before the cohort expansion as well.
+    from .models import Disclosure
+    for index in Disclosure.__table__.indexes:
+        index.create(engine, checkfirst=True)
     if not is_seeded():
         reset_and_seed()
     yield

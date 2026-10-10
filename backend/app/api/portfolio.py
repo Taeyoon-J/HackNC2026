@@ -16,8 +16,8 @@ router = APIRouter(prefix="/api", tags=["portfolio"])
 @router.get("/users")
 async def list_users(db: Session = Depends(get_db)):
     out = []
-    for u in db.scalars(select(User).order_by(User.role, User.id)).all():
-        w = db.get(Wallet, u.id)
+    for u, w in db.execute(select(User, Wallet).outerjoin(Wallet, Wallet.user_id == User.id)
+                          .order_by(User.role, User.id)).all():
         out.append({"id": u.id, "role": u.role, "display_name": u.display_name,
                     "available_cents": w.available_cents if w else 0,
                     "reserved_cents": w.reserved_cents if w else 0})

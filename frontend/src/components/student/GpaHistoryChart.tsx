@@ -6,9 +6,9 @@ interface Term {
 
 /** Simple bar chart of term GPAs with the market threshold drawn as a line. */
 export function GpaHistoryChart({ terms, threshold }: { terms: Term[]; threshold?: number }) {
-  const min = 3.0;
+  const min = 0.0;
   const max = 4.0;
-  const h = (v: number) => `${((v - min) / (max - min)) * 100}%`;
+  const h = (v: number) => `${Math.max(0, Math.min(100, ((v - min) / (max - min)) * 100))}%`;
   return (
     <>
     {threshold != null && (

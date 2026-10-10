@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from ..db import get_db
 from ..models import Disclosure, Market, Scholarship, User
+from ..realtime.ws_manager import ALL, manager
 from ..services import ledger_service as ledger
 from ..services import student_service
 from . import serializers as ser
@@ -20,6 +21,8 @@ class ProfileRequest(BaseModel):
     university: str = Field(min_length=1, max_length=120)
     year: str = Field(min_length=1, max_length=40)
     major: str = Field(min_length=1, max_length=120)
+    introduction: str | None = Field(default=None, max_length=4000)
+    pitch: str | None = Field(default=None, max_length=4000)
 
 
 class DisclosureRequest(BaseModel):
@@ -57,7 +60,8 @@ async def my_student(user: User = Depends(current_user), db: Session = Depends(g
 @router.put("/student")
 async def update_profile(req: ProfileRequest, user: User = Depends(current_user), db: Session = Depends(get_db)):
     s = student_service.student_for_user(db, user.id)
-    student_service.update_profile(db, s, req.university, req.year, req.major)
+    student_service.update_profile(db, s, req.university, req.year, req.major, req.introduction, req.pitch)
+    await manager.broadcast("STUDENT_UPDATED", ALL, {"student_id": s.id})
     return _profile(db, user)
 
 
@@ -66,6 +70,7 @@ async def upsert_disclosure(dtype: str, req: DisclosureRequest, user: User = Dep
                             db: Session = Depends(get_db)):
     s = student_service.student_for_user(db, user.id)
     student_service.upsert_disclosure(db, s, dtype, req.data)
+    await manager.broadcast("STUDENT_UPDATED", ALL, {"student_id": s.id})
     return _profile(db, user)
 
 

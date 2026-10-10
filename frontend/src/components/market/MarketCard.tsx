@@ -27,6 +27,9 @@ export function MarketCard({ market }: { market: Market }) {
         <MarketStatusBadge status={market.status} />
       </div>
 
+      <div className="text-xs text-muted">{market.student.university}</div>
+      {market.student.introduction && <p className="line-clamp-2 text-sm text-body">{market.student.introduction}</p>}
+
       <div className="rounded-xl bg-sunken px-4 py-3">
         <div className="text-[11px] font-bold uppercase tracking-wider text-muted">Goal · {market.term}</div>
         <div className="mt-0.5 font-display text-xl font-semibold text-ink">

@@ -17,6 +17,9 @@ import type {
   Contract,
   Action,
   OrderType,
+  DirectoryFilters,
+  DirectoryPage,
+  AdminStudentDetail,
 } from "./types";
 
 export class ApiError extends Error {}
@@ -42,6 +45,13 @@ export interface ProfileInput {
   university: string;
   year: string;
   major: string;
+  introduction?: string;
+  pitch?: string;
+}
+
+function directoryPath(path: string, filters: DirectoryFilters) {
+  const query = new URLSearchParams({ ...filters, page: String(filters.page), page_size: "24", paged: "true" });
+  return `${path}?${query}`;
 }
 
 export interface NewOrder {
@@ -56,6 +66,7 @@ export interface NewOrder {
 export const api = {
   users: () => request<User[]>("GET", "/api/users"),
   markets: () => request<Market[]>("GET", "/api/markets"),
+  searchMarkets: (filters: DirectoryFilters) => request<DirectoryPage<Market>>("GET", directoryPath("/api/markets", filters)),
   market: (id: string) => request<Market>("GET", `/api/markets/${id}`),
   orderbook: (id: string) => request<OrderBook>("GET", `/api/markets/${id}/orderbook`),
   trades: (id: string) => request<Trade[]>("GET", `/api/markets/${id}/trades`),
@@ -74,6 +85,9 @@ export const api = {
   cancelOrder: (id: number) => request<Order>("DELETE", `/api/orders/${id}`),
   admin: {
     markets: () => request<Market[]>("GET", "/api/admin/markets"),
+    searchMarkets: (filters: DirectoryFilters) => request<DirectoryPage<Market>>("GET", directoryPath("/api/admin/markets", filters)),
+    searchStudents: (filters: DirectoryFilters) => request<DirectoryPage<AdminStudent>>("GET", directoryPath("/api/admin/students", filters)),
+    student: (id: string) => request<AdminStudentDetail>("GET", `/api/admin/students/${id}`),
     students: () => request<AdminStudent[]>("GET", "/api/admin/students"),
     verifyStudent: (id: string) => request<AdminStudent>("POST", `/api/admin/students/${id}/verify`),
     delistStudent: (id: string) => request<AdminStudent>("POST", `/api/admin/students/${id}/delist`),

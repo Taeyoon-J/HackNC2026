@@ -15,14 +15,15 @@ export function StudentHome() {
   const save = useAction(api.me.updateProfile);
 
   useEffect(() => {
-    if (me) setProfile({ university: me.university, year: me.year, major: me.major });
-  }, [me?.id, me?.university, me?.year, me?.major]);
+    if (me) setProfile({ university: me.university, year: me.year, major: me.major, introduction: me.introduction, pitch: me.pitch });
+  }, [me?.id, me?.university, me?.year, me?.major, me?.introduction, me?.pitch]);
 
   if (error) return <p className="text-no">{error.message}</p>;
   if (!me) return <div className="card h-64 animate-pulse" />;
 
-  const changed = profile.university !== me.university || profile.year !== me.year || profile.major !== me.major;
-  const pending = me.disclosures.filter((d) => !d.verified_at).length;
+  const changed = profile.university !== me.university || profile.year !== me.year || profile.major !== me.major
+    || profile.introduction !== me.introduction || profile.pitch !== me.pitch;
+  const pending = me.disclosures.filter((d) => d.type !== "BIOGRAPHY" && !d.verified_at).length;
 
   return (
     <div className="space-y-6">
@@ -65,6 +66,7 @@ export function StudentHome() {
               </button>
             </div>
           </section>
+          {save.error && <p className="text-sm text-no">{save.error.message}</p>}
 
           <h2 className="pt-2 font-display text-xl font-semibold text-ink">Academic records</h2>
           <p className="-mt-2 text-sm text-muted">

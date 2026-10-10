@@ -13,6 +13,7 @@ from ..services import (invariants, market_service, scholarship_service, settlem
                         student_service)
 from . import serializers as ser
 from .deps import admin_user
+from .directory import DirectoryParams, directory_page
 
 router = APIRouter(prefix="/api/admin", tags=["admin"], dependencies=[Depends(admin_user)])
 
@@ -32,8 +33,9 @@ async def _status_changed(db, market):
 
 
 @router.get("/markets")
-async def all_markets(db: Session = Depends(get_db)):
-    return [ser.market(db, m) for m in db.scalars(select(Market).order_by(Market.id)).all()]
+async def all_markets(params: DirectoryParams = Depends(), db: Session = Depends(get_db)):
+    return directory_page(db, select(Market).join(Student, Student.id == Market.student_id),
+                          params, ser.market, markets=True, admin=True)
 
 
 @router.post("/markets/{market_id}/open")
@@ -110,17 +112,28 @@ def _student(db: Session, student_id: str) -> Student:
 
 
 def _student_row(db: Session, s: Student) -> dict:
-    pending = db.scalar(select(func.count(Disclosure.id)).where(Disclosure.student_id == s.id,
+    pending_cache = db.info.get("directory_pending")
+    pending = pending_cache.get(s.id, 0) if pending_cache is not None else db.scalar(select(func.count(Disclosure.id)).where(Disclosure.student_id == s.id,
+                                                                Disclosure.type != "BIOGRAPHY",
                                                                 Disclosure.verified_at.is_(None)))
-    markets = db.scalars(select(Market).where(Market.student_id == s.id).order_by(Market.created_at)).all()
+    markets_cache = db.info.get("directory_student_markets")
+    markets = markets_cache.get(s.id, []) if markets_cache is not None else db.scalars(select(Market).where(Market.student_id == s.id).order_by(Market.created_at)).all()
     return {**ser.student_brief(db, s), "user_id": s.user_id, "pending_disclosures": pending,
             "markets": [{"id": m.id, "status": m.status, "threshold": m.threshold, "term": m.term}
                         for m in markets]}
 
 
 @router.get("/students")
-async def list_students(db: Session = Depends(get_db)):
-    return [_student_row(db, s) for s in db.scalars(select(Student).order_by(Student.id)).all()]
+async def list_students(params: DirectoryParams = Depends(), db: Session = Depends(get_db)):
+    return directory_page(db, select(Student), params, _student_row, admin=True)
+
+
+@router.get("/students/{student_id}")
+async def student_detail(student_id: str, db: Session = Depends(get_db)):
+    s = _student(db, student_id)
+    disclosures = db.scalars(select(Disclosure).where(Disclosure.student_id == s.id).order_by(Disclosure.id)).all()
+    return {**_student_row(db, s), "disclosures": [{"id": d.id, "type": d.type, "title": d.title,
+            "data": d.data, "verified_at": ser.iso(d.verified_at)} for d in disclosures]}
 
 
 @router.post("/students/{student_id}/verify")

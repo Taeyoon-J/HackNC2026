@@ -22,6 +22,41 @@ Reset data: "Reset demo data" on the Admin page, or delete `backend/spe.db` and 
 
 ## Roles
 
+The default synthetic cohort contains **1,000 students at 100 US universities**:
+UNC Chapel Hill has exactly 150 students (15%). The other 850 use a discrete
+Gaussian over the remaining university list positions (mean 50, standard
+deviation 22), with at least one student per campus and largest-remainder rounding.
+The fixed seed is 2026. The catalog uses the 2026 US News National Universities
+list, selecting the first 100 institutions and breaking cutoff ties by name.
+Sources are recorded in `backend/app/demo_data.py`; this is a demo snapshot,
+not a live ranking feed.
+
+There are 20 majors, random course grades on a 0–4 scale, credit-weighted term
+GPAs, completed-semester course breakdowns, Fall 2026 course loads, achievements,
+activities, introductions and personal statements. Freshmen have no completed
+college semesters yet. Course codes and records are illustrative synthetic data.
+The first five market demos retain their real simulated trading histories; new
+markets start without a forecast until trades occur. Student F remains pending
+verification, giving 999 public goals and 1,000 admin goals initially.
+
+Trader markets, admin students and admin pricing have server-side text search,
+university/major/status filters and 24 results per page. Search includes student
+IDs, schools, majors, profile text and visible records. Admins can inspect pending
+records; traders search only public verified academic records. Personal statements
+are self-reported, immediately shared across roles and are not marked verified.
+
+To expand an existing six-student demo without deleting its orders or balances:
+
+```powershell
+cd backend
+.\.venv\Scripts\python.exe -m app.demo_data
+```
+
+This backs up the SQLite database before adding the cohort and updating the
+synthetic academic profiles. It skips expansion once at least 1,000 students exist.
+Reset demo data regenerates the full cohort. Tests use the small trading fixture
+plus dedicated full-cohort distribution, search and visibility checks.
+
 The login page asks "I am a…" — no password. Pick a role, then an account.
 
 | Role | Pages |

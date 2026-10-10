@@ -43,6 +43,7 @@ class Disclosure(Base):
     data: Mapped[dict] = mapped_column(JSON)
     visibility: Mapped[str] = mapped_column(default="PUBLIC")
     verified_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    __table_args__ = (Index("ix_disclosures_student_type", "student_id", "type"),)
 
 
 class Market(Base):

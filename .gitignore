@@ -1,5 +1,6 @@
 backend/.venv/
 backend/spe.db
+backend/spe.before-cohort-*.db
 __pycache__/
 .pytest_cache/
 frontend/node_modules/

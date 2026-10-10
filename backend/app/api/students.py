@@ -33,10 +33,12 @@ class NewStudent(BaseModel):
     university: str = Field(min_length=1, max_length=120)
     year: str = Field(min_length=1, max_length=40)
     major: str = Field(min_length=1, max_length=120)
+    introduction: str = Field(default="", max_length=4000)
+    pitch: str = Field(default="", max_length=4000)
 
 
 @router.post("")
 async def create_student(req: NewStudent, db: Session = Depends(get_db)):
     """Demo signup: no credentials; the frontend logs in as the returned user_id."""
-    s = student_service.create_student(db, req.university, req.year, req.major)
+    s = student_service.create_student(db, req.university, req.year, req.major, req.introduction, req.pitch)
     return {**ser.student_brief(db, s), "user_id": s.user_id}

@@ -1,7 +1,7 @@
 import type { ProfileInput } from "../../api/client";
 
 export const YEARS = ["Freshman", "Sophomore", "Junior", "Senior", "Graduate"];
-export const emptyProfile: ProfileInput = { university: "", year: "Freshman", major: "" };
+export const emptyProfile: ProfileInput = { university: "", year: "Freshman", major: "", introduction: "", pitch: "" };
 
 export function ProfileFields({ value, onChange }: { value: ProfileInput; onChange: (v: ProfileInput) => void }) {
   return (
@@ -31,6 +31,19 @@ export function ProfileFields({ value, onChange }: { value: ProfileInput; onChan
           placeholder="Computer Science"
           onChange={(e) => onChange({ ...value, major: e.target.value })}
         />
+      </label>
+      <label className="block text-xs text-muted sm:col-span-3">
+        About me
+        <textarea className="input mt-1" rows={3} maxLength={4000} value={value.introduction ?? ""}
+          placeholder="Introduce yourself, your interests and your academic journey."
+          onChange={(e) => onChange({ ...value, introduction: e.target.value })} />
+      </label>
+      <label className="block text-xs text-muted sm:col-span-3">
+        Personal statement / Why back me?
+        <textarea className="input mt-1" rows={4} maxLength={4000} value={value.pitch ?? ""}
+          placeholder="Share your goals, study plan and how a scholarship would help."
+          onChange={(e) => onChange({ ...value, pitch: e.target.value })} />
+        <span className="mt-1 block">Your introduction and personal statement are self-reported and visible to traders and admins.</span>
       </label>
     </div>
   );

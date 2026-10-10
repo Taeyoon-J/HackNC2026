@@ -24,6 +24,8 @@ export interface StudentBrief {
   university: string;
   year: string;
   major: string;
+  introduction: string;
+  pitch: string;
   verified: boolean;
   status: "ACTIVE" | "DELISTED";
 }
@@ -147,7 +149,7 @@ export interface Portfolio {
   settlements: SettlementRow[];
 }
 
-export type DisclosureType = "GPA_HISTORY" | "COURSE_LOAD" | "ACTIVITY" | "APPLICATION";
+export type DisclosureType = "GPA_HISTORY" | "COURSE_LOAD" | "ACTIVITY" | "APPLICATION" | "BIOGRAPHY";
 
 export interface Disclosure {
   id: number;
@@ -190,4 +192,27 @@ export interface AdminStudent extends StudentBrief {
   user_id: string;
   pending_disclosures: number;
   markets: { id: string; status: MarketStatus; threshold: number; term: string }[];
+}
+
+export interface DirectoryFilters {
+  q: string;
+  university: string;
+  major: string;
+  state: string;
+  page: number;
+}
+
+export interface DirectoryPage<T> {
+  items: T[];
+  total: number;
+  total_all: number;
+  page: number;
+  page_size: number;
+  universities: string[];
+  majors: string[];
+  summary: { pledged_cents?: number; paid_cents?: number; needs_review?: number; delisted?: number };
+}
+
+export interface AdminStudentDetail extends AdminStudent {
+  disclosures: Disclosure[];
 }

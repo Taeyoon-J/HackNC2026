@@ -1,11 +1,14 @@
 import { MarketCard } from "../../components/market/MarketCard";
-import { useMarkets } from "../../hooks/queries";
+import { api } from "../../api/client";
+import { DirectoryPagination, DirectorySearch, MARKET_STATES, useDirectory } from "../../components/student/DirectorySearch";
 import { usd } from "../../lib/format";
 
 export function MarketDirectory() {
-  const { data: markets = [], isLoading } = useMarkets();
-  const pledged = markets.reduce((s, m) => s + (m.scholarship?.promised_cents ?? 0), 0);
-  const paid = markets.reduce((s, m) => s + (m.scholarship?.status === "PAID" ? m.scholarship.promised_cents : 0), 0);
+  const directory = useDirectory("markets-directory", api.searchMarkets);
+  const { data, isLoading, error } = directory;
+  const markets = data?.items ?? [];
+  const pledged = data?.summary.pledged_cents ?? 0;
+  const paid = data?.summary.paid_cents ?? 0;
 
   return (
     <div className="space-y-8">
@@ -21,7 +24,7 @@ export function MarketDirectory() {
           <p className="mt-3 text-xs text-muted">Virtual credits only · Students are anonymous · All data is synthetic</p>
         </div>
         <div className="grid grid-cols-3 gap-3">
-          <Stat label="Students" value={String(markets.length)} />
+          <Stat label="Listed goals" value={String(data?.total_all ?? 0)} />
           <Stat label="Pledged" value={usd(pledged, 0)} accent />
           <Stat label="Paid out" value={usd(paid, 0)} accent />
         </div>
@@ -30,6 +33,9 @@ export function MarketDirectory() {
 
       <section>
         <h2 className="mb-4 font-display text-xl font-semibold text-ink">Students</h2>
+        <div className="mb-4"><DirectorySearch directory={directory} states={MARKET_STATES.filter((s) => s.value !== "DRAFT")} /></div>
+        {error && <p className="mb-4 text-sm text-no">{error.message}</p>}
+        {!isLoading && markets.length === 0 && <p className="card p-8 text-center text-muted">No students match your search. Try another university or clear the filters.</p>}
         {isLoading ? (
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {Array.from({ length: 3 }).map((_, i) => (
@@ -43,6 +49,7 @@ export function MarketDirectory() {
             ))}
           </div>
         )}
+        <DirectoryPagination directory={directory} />
       </section>
     </div>
   );
