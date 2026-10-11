@@ -1,6 +1,7 @@
 import { price as fmtPrice } from "../../lib/format";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { HistoryPoint } from "../../api/types";
+import { bucketHistory, fivePercentPriceDomain } from "../../lib/history";
 
 const DAY = 86400;
 const MIN_SPAN = 6 * 3600;
@@ -26,23 +27,10 @@ export function PriceChart({ points, max = 100, current }: { points: HistoryPoin
     element?.addEventListener("wheel", wheel, { passive: false });
     return () => element?.removeEventListener("wheel", wheel);
   }, []);
-  const rows = useMemo(() => {
-    const buckets = new Map<number, { price: number; quantity: number }>();
-    const sorted = [...points].filter((p) => p.t <= now).sort((a, b) => a.t - b.t);
-    for (const p of sorted) {
-      if (p.t < start || p.t > boundedEnd) continue;
-      const d = new Date(p.t * 1000);
-      const unit = step === "hour" ? 3600 : step === "week" ? 7 * DAY : DAY;
-      const bucket = step === "month" ? Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1) / 1000 : Math.floor(p.t / unit) * unit;
-      const prev = buckets.get(bucket);
-      buckets.set(bucket, { price: p.price, quantity: (prev?.quantity ?? 0) + p.quantity });
-    }
-    return [...buckets.entries()].map(([time, row]) => ({ time: Math.max(start, time), ...row }));
-  }, [points, start, boundedEnd, step]);
+  const rows = useMemo(() => bucketHistory(points, start, boundedEnd, step, now), [points, start, boundedEnd, step, now]);
   const x = (time: number) => 45 + (time - start) / span * 610;
   const center = current ?? points[points.length - 1]?.price ?? max / 2;
-  const low = Math.max(0, center * 0.95);
-  const high = Math.max(low + 1, center * 1.05);
+  const [low, high] = fivePercentPriceDomain(center);
   const y = (value: number) => 210 - clamp((value - low) / (high - low), 0, 1) * 180;
   const maxVolume = Math.max(1, ...rows.map((r) => r.quantity));
   const format = (t: number) => new Date(t * 1000).toLocaleDateString("en-US", step === "month" ? { month: "short", year: "2-digit" } : { month: "short", day: "numeric", ...(step === "hour" ? { hour: "numeric" } : {}) });

@@ -36,6 +36,7 @@ def prefetch_page(db, rows, markets):
     for order in db.scalars(select(Order).where(Order.market_id.in_(ids), Order.status.in_(("OPEN", "PARTIAL")))).all():
         books[order.market_id].append(order)
     since = utcnow() - timedelta(hours=24)
+    week_since = utcnow() - timedelta(days=7)
     for trade in db.scalars(select(Trade).where(Trade.market_id.in_(ids)).order_by(Trade.executed_at, Trade.id)).all():
         trades[trade.market_id].append(trade)
     stats = {}
@@ -51,7 +52,7 @@ def prefetch_page(db, rows, markets):
                        "trades_24h": len(recent), "volume_24h": volume,
                        "change_24h": m.last_price_cents - prev if m.last_price_cents is not None and prev is not None else None}
         sparklines[m.id] = [{"t": int(t.executed_at.replace(tzinfo=timezone.utc).timestamp()), "price": t.yes_price_cents, "quantity": t.quantity}
-                            for t in trades[m.id][-16:]]
+                            for t in trades[m.id] if t.executed_at >= week_since]
     db.info["directory_stats"] = stats
     db.info["directory_sparklines"] = sparklines
 
