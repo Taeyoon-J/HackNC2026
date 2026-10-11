@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from ..db import get_db
-from ..models import AccountCredentials, Market, Order, Position, Settlement, Student, User, Wallet
+from ..models import AccountCredentials, Market, Order, Position, Settlement, Student, Trade, User, Wallet
 from ..services import ledger_service as ledger
 from ..services.matching_engine import contract_price
 from ..services.order_service import OPEN_STATUSES
@@ -51,6 +51,55 @@ async def portfolio(user: User = Depends(current_user), db: Session = Depends(ge
                              .order_by(Order.created_at.desc())).all()
     settlements = db.scalars(select(Settlement).where(Settlement.user_id == user.id)
                              .order_by(Settlement.created_at.desc())).all()
+    held_by_market = {p.market_id: p for p in db.scalars(select(Position).where(
+        Position.user_id == user.id, Position.contract == "YES")).all()}
+    settled_by_market = {s.market_id: s for s in settlements if s.contract == "YES"}
+    realized: dict[str, dict[str, int]] = {}
+    held_basis: dict[str, int] = {}
+    replay_qty: dict[str, int] = {}
+    replay_basis: dict[str, int] = {}
+    trades = db.execute(select(Trade, Order).join(Order, or_(Order.id == Trade.maker_order_id,
+        Order.id == Trade.taker_order_id)).where(Order.user_id == user.id, Order.contract == "YES")
+        .order_by(Trade.executed_at, Trade.id)).all()
+    for trade, order in trades:
+        market_id = trade.market_id
+        qty, price_cents = trade.quantity, trade.yes_price_cents
+        result = realized.setdefault(market_id, {"profit": 0, "loss": 0})
+        if order.action == "BUY":
+            replay_qty[market_id] = replay_qty.get(market_id, 0) + qty
+            replay_basis[market_id] = replay_basis.get(market_id, 0) + price_cents * qty
+        else:
+            before = replay_qty.get(market_id, 0)
+            cost = min(replay_basis.get(market_id, 0), replay_basis.get(market_id, 0) * qty // before) if before else 0
+            replay_qty[market_id] = max(0, before - qty)
+            replay_basis[market_id] = max(0, replay_basis.get(market_id, 0) - cost)
+            pnl = price_cents * qty - cost
+            result["profit"] += max(0, pnl)
+            result["loss"] += max(0, -pnl)
+    impact_ids = set(held_by_market) | set(settled_by_market) | set(realized)
+    impact = []
+    for market_id in impact_ids:
+        market = db.get(Market, market_id)
+        if market is None:
+            continue
+        position = held_by_market.get(market_id)
+        settlement = settled_by_market.get(market_id)
+        quantity = settlement.quantity if settlement else (position.quantity if position else 0)
+        basis = replay_basis.get(market_id, 0) if settlement else (position.cost_basis_cents if position else 0)
+        price = market.final_price_cents if market.status == "SETTLED" and market.final_price_cents is not None else market.last_price_cents
+        additional, reduced = 0, 0
+        if quantity and basis and price is not None:
+            additional = max(0, price * quantity - basis)
+            reduced = max(0, basis - price * quantity)
+        student = db.get(Student, market.student_id)
+        impact.append({"market_id": market.id, "student_name": db.get(User, student.user_id).display_name,
+            "question": market.question, "term": market.term, "initial_expected_value_cents": basis,
+            "additional_impact_cents": additional, "reduced_impact_cents": reduced,
+            "trading_profit_cents": realized.get(market_id, {}).get("profit", 0),
+            "trading_loss_cents": realized.get(market_id, {}).get("loss", 0),
+            "held_quantity": quantity, "final_price_cents": price,
+            "settled": market.status == "SETTLED"})
+    impact.sort(key=lambda row: (row["student_name"].lower(), row["term"]))
     orders = []
     for o in open_orders:
         m = db.get(Market, o.market_id)
@@ -59,6 +108,7 @@ async def portfolio(user: User = Depends(current_user), db: Session = Depends(ge
         "user": {"id": user.id, "role": user.role, "display_name": user.display_name},
         "available_cents": w.available_cents, "reserved_cents": w.reserved_cents,
         "positions_value_cents": total_value,
+        "impact": impact,
         "positions": positions,
         "open_orders": orders,
         "settlements": [{"market_id": s.market_id, "contract": s.contract, "quantity": s.quantity,

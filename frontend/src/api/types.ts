@@ -161,8 +161,24 @@ export interface Portfolio {
   reserved_cents: number;
   positions_value_cents: number;
   positions: PositionRow[];
+  impact: PortfolioImpact[];
   open_orders: Order[];
   settlements: SettlementRow[];
+}
+
+export interface PortfolioImpact {
+  market_id: string;
+  student_name: string;
+  question: string;
+  term: string;
+  initial_expected_value_cents: number;
+  additional_impact_cents: number;
+  reduced_impact_cents: number;
+  trading_profit_cents: number;
+  trading_loss_cents: number;
+  held_quantity: number;
+  final_price_cents: number | null;
+  settled: boolean;
 }
 
 export type DisclosureType = "GPA_HISTORY" | "COURSE_LOAD" | "COURSE_PROGRESS" | "ACTIVITY" | "APPLICATION" | "BIOGRAPHY";

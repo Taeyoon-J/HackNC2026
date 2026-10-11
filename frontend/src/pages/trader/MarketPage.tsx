@@ -51,7 +51,7 @@ export function MarketPage() {
                 {market.total_supply.toLocaleString()} total shares
               </span>
             </div>
-            <PriceChart points={history} max={market.share_value_cents} />
+            <PriceChart points={history} max={market.share_value_cents} current={market.last_price} />
           </div>
           <div className="grid gap-4 md:grid-cols-2">
             <OrderBook book={book} view="YES" onPick={setPrice} />

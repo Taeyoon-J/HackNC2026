@@ -19,9 +19,9 @@ export function MarketHeader({ market }: { market: Market }) {
       <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-3 xl:grid-cols-6">
         <Kpi label="Cumulative GPA" value={market.student.cumulative_gpa != null ? market.student.cumulative_gpa.toFixed(2) : "None"} />
         <Kpi label="Goal GPA" value={market.threshold.toFixed(1)} />
-        <Kpi label="Community forecast" value={chance(market) != null ? `${chance(market)}%` : "—"} accent="text-brand" />
+        <div><div className="text-xs text-muted">Community forecast</div><div className="num text-lg font-semibold text-brand">{chance(market) != null ? `${chance(market)}%` : "—"}</div><div className="text-[10px] text-muted">Initial {chance({ last_price: market.initial_price, share_value_cents: market.share_value_cents }) ?? "—"}%</div></div>
         <Kpi label="24h average" value={price(market.vwap_24h)} />
-        <Kpi label="Volume" value={qty(market.volume)} />
+        <Kpi label="Trading Volume (Day)" value={qty(market.volume_24h)} />
         <Kpi
           label={market.status === "SETTLED" ? "Scholarship paid" : "Initial scholarship"}
           value={market.status === "SETTLED" && s ? usd(s.promised_cents) : usd(market.initial_scholarship_cents)}

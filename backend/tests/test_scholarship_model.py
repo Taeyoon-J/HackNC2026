@@ -57,7 +57,8 @@ def test_goal_met_pays_bonus_scaled_by_probability(priced):
     expected = round(s * ((3.95 - goal) / p + 1))
     assert as_user(priced, "STUDENT_A")("GET", "/api/me/student").json()["wallet_cents"] == expected
     trader = as_user(priced, "TRADER_A")("GET", "/api/portfolio").json()
-    assert trader["available_cents"] - cash >= held * before["share_value_cents"]
+    payout = next(row["payout_cents"] for row in trader["settlements"] if row["market_id"] == M1)
+    assert payout == 0 and trader["available_cents"] - cash < held * before["share_value_cents"]
     assert_invariants(priced)
 
 

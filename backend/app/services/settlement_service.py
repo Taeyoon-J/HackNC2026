@@ -46,7 +46,9 @@ def settle(db: Session, market: Market, now=None, *, commit=True) -> dict:
     for pos in positions:
         if pos.reserved_qty:
             raise AssertionError("open sell reservations remain after close")
-        payout = pos.quantity * market.share_value_cents if pos.contract == market.outcome else 0
+        # Fixed YES shares represent sponsorship impact. At close they are retired,
+        # not redeemed into the trader's available wallet balance.
+        payout = 0 if market.total_supply else (pos.quantity * market.share_value_cents if pos.contract == market.outcome else 0)
         if payout:
             ledger.post(db, [(ledger.collateral_account(market.id), -payout),
                              (ledger.user_account(pos.user_id), payout)], "SETTLEMENT", now=now)

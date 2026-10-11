@@ -94,7 +94,7 @@ def test_final_gpa_atomic_settlement_both_scholarships(fixed, grade, outcome, si
     assert history[-1]["term"] == "Fall 2026" and history[-1]["gpa"] == grade
     trader = as_user(fixed, "TRADER_A")("GET", "/api/portfolio").json()
     assert trader["reserved_cents"] == 0 and not trader["open_orders"]
-    assert trader["available_cents"] == cash_before + 15 + (1200 if outcome == "YES" else 0)
+    assert trader["available_cents"] == cash_before + 15  # shares retire at close without a cash payout
     assert not any(p["market_id"] == M1 for p in trader["positions"])
     assert order(fixed, "TRADER_A", "YES", "BUY", 50, 1).status_code == 400
     assert admin("POST", f"/api/admin/verifications/{req['id']}/approve", json={}).status_code == 400
