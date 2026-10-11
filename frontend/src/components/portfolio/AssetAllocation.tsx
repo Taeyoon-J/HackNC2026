@@ -8,21 +8,24 @@ export function AssetAllocation({ portfolio }: { portfolio: import("../../api/ty
   const touchStart = useRef<number | null>(null);
   const [includeCash, setIncludeCash] = useState(false);
   const [hovered, setHovered] = useState<number | null>(null);
-  const bars = useMemo(() => portfolio.impact.map((row) => ({
+  const impact = useMemo(() => ["TRADER_A", "TRADER_B", "TRADER_C"].includes(portfolio.user.id)
+    ? portfolio.impact.filter((row) => /^STU00[1-5]-/.test(row.market_id))
+    : portfolio.impact, [portfolio.impact, portfolio.user.id]);
+  const bars = useMemo(() => impact.map((row) => ({
     ...row,
     base: row.initial_expected_value_cents,
     additional: Math.max(0, row.additional_impact_cents - row.reduced_impact_cents),
     reduced: Math.max(0, row.reduced_impact_cents - row.additional_impact_cents),
     profit: Math.max(0, row.trading_profit_cents - row.trading_loss_cents),
     loss: Math.max(0, row.trading_loss_cents - row.trading_profit_cents),
-  })), [portfolio.impact]);
+  })), [impact]);
   const positiveMax = Math.max(1, ...bars.map((b) => b.base + b.additional + b.profit), includeCash ? portfolio.available_cents + portfolio.reserved_cents : 0);
   const negativeMax = Math.max(1, ...bars.map((b) => b.reduced + b.loss));
   const totalBase = bars.reduce((sum, b) => sum + b.base, 0);
-  const totalAdditional = portfolio.impact.reduce((sum, b) => sum + b.additional_impact_cents, 0);
-  const totalProfit = portfolio.impact.reduce((sum, b) => sum + b.trading_profit_cents, 0);
-  const totalLoss = portfolio.impact.reduce((sum, b) => sum + b.trading_loss_cents, 0);
-  const totalReduced = portfolio.impact.reduce((sum, b) => sum + b.reduced_impact_cents, 0);
+  const totalAdditional = impact.reduce((sum, b) => sum + b.additional_impact_cents, 0);
+  const totalProfit = impact.reduce((sum, b) => sum + b.trading_profit_cents, 0);
+  const totalLoss = impact.reduce((sum, b) => sum + b.trading_loss_cents, 0);
+  const totalReduced = impact.reduce((sum, b) => sum + b.reduced_impact_cents, 0);
   const selected = hovered == null ? null : bars[hovered];
   const chartWidth = Math.max(620, bars.length * 105 + (includeCash ? 105 : 0));
   const top = 20, baseline = 210, bottom = 275, plotHeight = baseline - top;
