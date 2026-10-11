@@ -88,11 +88,14 @@ def test_admin_liquidity_run_reports_and_lists_quotes(priced):
 
 def test_live_simulation_trades_without_nessie(priced):
     import time
+    from app.services.simulation import BOTS
     admin = as_user(priced, "ADMIN")
     assert admin("POST", "/api/admin/simulation/start", json={"minutes": 1, "nessie": False}).status_code == 200
     assert admin("POST", "/api/admin/simulation/start", json={"minutes": 1, "nessie": False}).status_code == 400
     time.sleep(6)
     status = admin("POST", "/api/admin/simulation/stop").json()
     assert not status["running"] and len(status["markets"]) == 5
+    assert status["trades"] >= 3
+    assert all(e["buyer"] in BOTS or e["seller"] in BOTS for e in status["events"])
     assert all(e["nessie"] == "off" for e in status["events"])
     assert_invariants(priced)

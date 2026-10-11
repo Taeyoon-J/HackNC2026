@@ -347,7 +347,7 @@ def upgrade_demo(db, *, seed_holdings=True):
                      status="OPEN", created_at=now - timedelta(days=1)))
     db.commit()
     if seed_holdings and converted:
-        for sid, qty in [("STU001", 18), ("STU002", 12), ("STU003", 16), ("STU004", 10), ("STU007", 22), ("STU008", 14)]:
+        for sid, qty in [("STU001", 3), ("STU002", 2), ("STU003", 3), ("STU004", 2), ("STU007", 4), ("STU008", 3)]:
             market = next((m for m in markets if m.student_id == sid and m.status == "TRADING"), None)
             if market and order_service.position(db, "TRADER_A", market.id, "YES").quantity == 0:
                 order_service.place_order(db, "TRADER_A", market.id, "YES", "BUY", "MARKET", None, qty,

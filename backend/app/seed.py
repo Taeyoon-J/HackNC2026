@@ -11,7 +11,7 @@ from .services import ledger_service as ledger
 from .services import market_service, order_service, scholarship_service, settlement_service, student_service
 from .services.matching_engine import BUY, LIMIT, NO, SELL, YES
 
-TRADER_CREDITS = 100_000_00
+TRADER_CREDITS = 25_000_00
 MM_CREDITS = 100_000_00
 
 USERS = [

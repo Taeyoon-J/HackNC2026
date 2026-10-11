@@ -1,4 +1,4 @@
-"""Live trading simulation for Students A–E, with each trade recorded in Capital One Nessie.
+"""Live Trader A–C simulation across Students A–E markets, optionally recorded in Nessie.
 
 While running, bots act every few seconds on one of the A–E markets: mostly they take the
 best quote (a real trade through the matching engine), sometimes they post a new resting
@@ -23,9 +23,10 @@ from . import market_service, nessie, order_service
 from .matching_engine import BUY, LIMIT, SELL, YES
 
 STUDENT_IDS = ("STU001", "STU002", "STU003", "STU004", "STU005")
-# Trader A is left alone so a person can trade by hand during the demo.
-BOTS = ("TRADER_B", "TRADER_C", "MM_ALPHA", "MM_BETA")
-TICK = (1.5, 4.0)  # seconds between bot actions
+# Only trader accounts participate in this demo simulation. The separate liquidity
+# market maker continues to use MM_ALPHA/MM_BETA under its own 72-hour rule.
+BOTS = ("TRADER_A", "TRADER_B", "TRADER_C")
+TICK = (1.0, 1.0)  # target one matching attempt per second
 
 
 def _iso(ts: float) -> str:
@@ -81,8 +82,7 @@ class Simulation:
     async def _setup_nessie(self, db):
         try:
             self.client = nessie.Nessie()
-            # Trader A does not trade automatically but can be on either side of a bot's trade.
-            people = list(BOTS) + ["TRADER_A"]
+            people = list(BOTS)
             balances = {u: ledger.wallet(db, u).available_cents // 100 for u in people}
             self.accounts = await nessie.ensure_accounts(db, self.client, people, balances)
             self.queue = asyncio.Queue()
@@ -112,39 +112,49 @@ class Simulation:
 
     async def _tick(self, rng):
         with SessionLocal() as db:
-            market = rng.choice(_markets(db))
-            bias = self.bias.get(market.id, 0.0) * 0.9 + rng.gauss(0, 0.35)
-            self.bias[market.id] = max(-1.0, min(1.0, bias))
+            markets = _markets(db)
+            if not markets:
+                return
+            rng.shuffle(markets)
+            for market in markets:
+                bias = self.bias.get(market.id, 0.0) * 0.9 + rng.gauss(0, 0.35)
+                self.bias[market.id] = max(-1.0, min(1.0, bias))
+                last = market.last_price_cents or market.initial_price_cents or market.share_value_cents // 2
+                buying = rng.random() < 0.5 + 0.25 * self.bias[market.id]
+                # Try the preferred side, then its opposite, and then another market
+                # before falling back to a passive quote for this second's attempt.
+                for direction in (buying, not buying):
+                    bid, ask = market_service.best_prices(db, market.id)
+                    target = ask if direction else bid
+                    if target is None:
+                        continue
+                    actors = list(BOTS)
+                    rng.shuffle(actors)
+                    for actor in actors:
+                        quantity = rng.choice([1, 1, 1, 2])
+                        if not self._can(db, market, actor, direction, target, quantity):
+                            continue
+                        try:
+                            order, trades = order_service.place_order(
+                                db, actor, market.id, YES, BUY if direction else SELL,
+                                LIMIT, target, quantity)
+                        except DomainError:
+                            continue
+                        if trades:
+                            await self._record(db, market, trades)
+                            return
+            # Keep the book supplied when none of the three traders can cross it.
+            market = rng.choice(markets)
             last = market.last_price_cents or market.initial_price_cents or market.share_value_cents // 2
-            if rng.random() < 0.3:
-                self._quote(db, rng, market, last)
-                db.commit()
-                await manager.broadcast("ORDERBOOK_UPDATED", market.id)
-                return
-            buying = rng.random() < 0.5 + 0.25 * self.bias[market.id]
-            bid, ask = market_service.best_prices(db, market.id)
-            target = ask if buying else bid
-            if target is None:
-                self._quote(db, rng, market, last)
-                db.commit()
-                return
-            actors = [u for u in BOTS if self._can(db, market, u, buying, target)]
-            rng.shuffle(actors)
-            for actor in actors:
-                try:
-                    order, trades = order_service.place_order(db, actor, market.id, YES, BUY if buying else SELL,
-                                                              LIMIT, target, rng.choice([1, 1, 2, 3]))
-                except DomainError:
-                    continue
-                if trades:
-                    await self._record(db, market, trades)
-                return
+            self._quote(db, rng, market, last)
+            db.commit()
+            await manager.broadcast("ORDERBOOK_UPDATED", market.id)
 
-    def _can(self, db, market, user, buying, price) -> bool:
+    def _can(self, db, market, user, buying, price, quantity) -> bool:
         if buying:
-            return ledger.wallet(db, user).available_cents >= price * 3
+            return ledger.wallet(db, user).available_cents >= price * quantity
         pos = order_service.position(db, user, market.id, YES)
-        return pos.quantity - pos.reserved_qty > 0
+        return pos.quantity - pos.reserved_qty >= quantity
 
     def _quote(self, db, rng, market, last):
         """A bot rests a new order a little away from the last price."""
@@ -154,6 +164,14 @@ class Simulation:
         move = rng.uniform(0.003, 0.025)
         price = round(last * (1 + move if selling else 1 - move))
         price = max(1, min(market.share_value_cents - 1, price))
+        bid, ask = market_service.best_prices(db, market.id)
+        if selling and bid is not None:
+            price = max(price, bid + 1)
+        elif not selling and ask is not None:
+            price = min(price, ask - 1)
+        price = max(1, min(market.share_value_cents - 1, price))
+        if (selling and bid is not None and price <= bid) or (not selling and ask is not None and price >= ask):
+            return
         qty = min(rng.randint(1, 3), pos.quantity - pos.reserved_qty) if selling else rng.randint(1, 3)
         if qty <= 0 or (not selling and ledger.wallet(db, user).available_cents < price * qty):
             return

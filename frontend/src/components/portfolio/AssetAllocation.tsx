@@ -1,8 +1,11 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { usd } from "../../lib/format";
+import { CumulativeSponsorshipChart } from "./CumulativeSponsorshipChart";
 
 const COLORS = { base: "#6596e8", additional: "#72b978", profit: "#d66b67", loss: "#e89a45", reduced: "#e5c84e", cash: "#94a3b8" };
 export function AssetAllocation({ portfolio }: { portfolio: import("../../api/types").Portfolio }) {
+  const [slide, setSlide] = useState(0);
+  const touchStart = useRef<number | null>(null);
   const [includeCash, setIncludeCash] = useState(false);
   const [hovered, setHovered] = useState<number | null>(null);
   const bars = useMemo(() => portfolio.impact.map((row) => ({
@@ -25,18 +28,28 @@ export function AssetAllocation({ portfolio }: { portfolio: import("../../api/ty
   const top = 20, baseline = 210, bottom = 275, plotHeight = baseline - top;
   const posY = (value: number) => baseline - value / positiveMax * plotHeight;
   const summary = [
-    ["Initial expected value", totalBase, COLORS.base, "Money you contributed for shares still held through close."],
-    ["Additional impact created", totalAdditional, COLORS.additional, "Final value above your purchase cost, for shares held through close."],
-    ["Trading profit", totalProfit, COLORS.profit, "Gross gains from shares sold above their purchase cost."],
-    ["Trading loss", totalLoss, COLORS.loss, "Gross losses from shares sold below their purchase cost; these offset trading profit."],
-    ["Reduced impact", totalReduced, COLORS.reduced, "Value lost at close when held shares finish below your purchase cost."],
+    ["Initial Expected Value", totalBase, COLORS.base, "Money you contributed for shares still held through close."],
+    ["Additional Impact Created", totalAdditional, COLORS.additional, "Final value above your purchase cost, for shares held through close."],
+    ["Trading Profit", totalProfit, COLORS.profit, "Gross gains from shares sold above their purchase cost."],
+    ["Trading Loss", totalLoss, COLORS.loss, "Gross losses from shares sold below their purchase cost; these offset Trading Profit."],
+    ["Reduced Impact Created", totalReduced, COLORS.reduced, "Value lost at close when held shares finish below your purchase cost."],
   ] as const;
 
-  return <section className="card space-y-4 p-5">
+  return <section className="card space-y-4 p-5" onTouchStart={(event) => { touchStart.current = event.changedTouches[0]?.clientX ?? null; }} onTouchEnd={(event) => {
+    if (touchStart.current == null) return;
+    const distance = event.changedTouches[0].clientX - touchStart.current;
+    if (Math.abs(distance) > 45) setSlide(distance < 0 ? 1 : 0);
+    touchStart.current = null;
+  }}>
     <div className="flex flex-wrap items-center justify-between gap-3">
-      <div><h2 className="font-semibold text-ink">Cumulative Sponsorship Impact</h2><p className="text-xs text-muted">Your contribution and the additional scholarship impact it creates.</p></div>
-      <label className="flex items-center gap-2 text-xs text-muted"><input type="checkbox" checked={includeCash} onChange={(e) => { setIncludeCash(e.target.checked); setHovered(null); }} />Include available cash</label>
+      <div><h2 className="font-semibold text-ink">{slide === 0 ? "Potential Discovered" : "Cumulative Sponsorship Impact"}</h2><p className="text-xs text-muted">{slide === 0 ? "Your contribution and the additional scholarship impact it creates." : "Cumulative monthly sponsorship and additional impact."}</p></div>
+      <div className="flex items-center gap-2">
+        {slide === 0 && <label className="flex items-center gap-2 text-xs text-muted"><input type="checkbox" checked={includeCash} onChange={(e) => { setIncludeCash(e.target.checked); setHovered(null); }} />Include Available Cash</label>}
+        <button type="button" aria-label="Previous chart" className="btn border border-line px-2" onClick={() => setSlide(0)} disabled={slide === 0}>‹</button>
+        <button type="button" aria-label="Next chart" className="btn border border-line px-2" onClick={() => setSlide(1)} disabled={slide === 1}>›</button>
+      </div>
     </div>
+    <div hidden={slide !== 0}>
     {bars.length || includeCash ? <>
       <div className="overflow-x-auto">
         <svg viewBox={`0 0 ${chartWidth} 310`} className="min-w-full" style={{ width: chartWidth }} role="img" aria-label="Stacked sponsorship impact by student market">
@@ -62,7 +75,12 @@ export function AssetAllocation({ portfolio }: { portfolio: import("../../api/ty
       </div>
       {selected && <div className="rounded-xl bg-sunken p-3 text-sm"><div className="mb-2 font-semibold text-ink">{selected.student_name} · {selected.term}{selected.settled ? " · Final" : " · Current estimate"}</div><div className="grid gap-x-4 gap-y-1 sm:grid-cols-2">{summary.map(([label], i) => { const values = [selected.base, selected.additional_impact_cents, selected.trading_profit_cents, selected.trading_loss_cents, selected.reduced_impact_cents]; return <div key={label} className="flex justify-between gap-2"><span>{label}</span><strong className="num">{usd(values[i])}</strong></div>; })}</div></div>}
       <div className="grid gap-3 border-t border-line pt-4 sm:grid-cols-2 lg:grid-cols-3">{summary.map(([label, value, color, explanation]) => <div key={label} className="flex gap-2"><span className="mt-1 h-3 w-3 shrink-0 rounded-sm" style={{ background: color }} /><div><div className="text-xs text-muted">{label}</div><div className="num font-semibold text-ink">{usd(value)}</div><p className="mt-1 text-[11px] leading-snug text-muted">{explanation}</p></div></div>)}</div>
-      <p className="text-xs text-muted">Trading losses offset trading profits. At final GPA settlement, held shares are retired and add no cash to your available balance.</p>
+      <p className="text-xs text-muted">Trading Loss offsets Trading Profit. At final GPA settlement, held shares are retired and add no cash to your available balance.</p>
     </> : <p className="py-8 text-center text-sm text-muted">No contribution history yet. Buy YES shares in a student market to create sponsorship impact.</p>}
+    </div>
+    {slide === 1 && (["TRADER_A", "TRADER_B", "TRADER_C"].includes(portfolio.user.id) ? <CumulativeSponsorshipChart /> : <p className="py-10 text-center text-sm text-muted">Cumulative Sponsorship Impact demo data is available for Trader A, B, and C.</p>)}
+    <div className="flex justify-center gap-1" aria-label="Chart page">
+      {[0, 1].map((page) => <button key={page} type="button" aria-label={`Show chart ${page + 1}`} aria-current={slide === page ? "page" : undefined} onClick={() => setSlide(page)} className={`h-1.5 rounded-full transition-all ${slide === page ? "w-6 bg-brand" : "w-2 bg-line"}`} />)}
+    </div>
   </section>;
 }

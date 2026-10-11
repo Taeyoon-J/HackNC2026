@@ -11,7 +11,7 @@ const NAMES: Record<string, string> = {
 };
 const who = (id: string) => NAMES[id] ?? id;
 
-/** Live 10-minute trading simulation for Students A–E, mirrored to Capital One Nessie. */
+/** Live 10-minute Trader A–C simulation, mirrored to Capital One Nessie. */
 export function SimulationPanel() {
   const [useNessie, setUseNessie] = useState(true);
   const { data: s } = useQuery({
@@ -30,11 +30,12 @@ export function SimulationPanel() {
     <section className="card space-y-4 p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="font-semibold text-ink">Live trading simulation · Students A–E</h2>
+          <h2 className="font-semibold text-ink">Live trading simulation · Trader A, B & C</h2>
           <p className="max-w-2xl text-xs text-muted">
-            For 10 minutes, bots (Trader B, Trader C and the two market makers) trade every few seconds through the real
-            matching engine. Trader A is left free for you to trade by hand. Each trade is recorded as a Capital One Nessie
-            transfer from the buyer.
+            For 10 minutes, Trader A, B and C attempt one trade per second through the real matching engine when a quote,
+            cash balance, and share inventory allow it.
+            Confirmed trades between these accounts are mirrored as Capital One Nessie transfers. Their cash, positions,
+            and orders refresh live in each trader portfolio.
           </p>
         </div>
         <div className="flex items-center gap-3">

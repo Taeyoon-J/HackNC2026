@@ -26,6 +26,27 @@ def ensure_schema():
     from .db import SessionLocal
     from .models import AccountCredentials, Market, Student, Trade, User
     with SessionLocal() as db:
+        # Existing demo databases were seeded with $5,000 per trader. Bring
+        # their A/B/C starting budgets up to the new $25,000 without applying
+        # the top-up more than once or disturbing trades already made.
+        from sqlalchemy import func
+        from .models import LedgerEntry, Wallet
+        trader_budget = 25_000_00
+        old_trader_budget = 5_000_00
+        top_up = trader_budget - old_trader_budget
+        for trader_id in ("TRADER_A", "TRADER_B", "TRADER_C"):
+            marker_exists = db.scalar(select(LedgerEntry.id).where(
+                LedgerEntry.account == f"user:{trader_id}",
+                LedgerEntry.entry_type == "TRADER_BUDGET_X5_TOPUP").limit(1))
+            seeded_amount = db.scalar(select(func.coalesce(func.sum(LedgerEntry.amount_cents), 0)).where(
+                LedgerEntry.account == f"user:{trader_id}", LedgerEntry.entry_type == "FUNDING"))
+            if not marker_exists and seeded_amount == old_trader_budget and db.get(Wallet, trader_id):
+                from .services import ledger_service as ledger
+                ledger.post(db, [(ledger.TREASURY, -top_up),
+                                 (ledger.user_account(trader_id), top_up)],
+                            "TRADER_BUDGET_X5_TOPUP")
+        db.commit()
+
         rows = db.execute(select(User, AccountCredentials).join(AccountCredentials,
             AccountCredentials.user_id == User.id).where(User.role == "STUDENT",
             User.display_name.like("Student %"), AccountCredentials.password_hash != "")).all()
