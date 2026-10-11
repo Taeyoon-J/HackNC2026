@@ -16,7 +16,7 @@ from datetime import datetime, timezone
 from sqlalchemy import select
 
 from ..db import DomainError, SessionLocal, utcnow
-from ..models import Market, Order, Student, User
+from ..models import Market, Order, Position, Student, User
 from ..realtime.ws_manager import manager
 from . import ledger_service as ledger
 from . import market_service, nessie, order_service
@@ -63,6 +63,7 @@ class Simulation:
             markets = _markets(db)
             if not markets:
                 raise DomainError("Students A–E have no trading markets")
+            _clear_starting_holdings(db, markets)
             self.start_prices = {m.id: m.last_price_cents for m in markets}
             if use_nessie:
                 await self._setup_nessie(db)
@@ -245,6 +246,46 @@ class Simulation:
 def _markets(db):
     return db.scalars(select(Market).where(Market.student_id.in_(STUDENT_IDS), Market.status == "TRADING",
                                            Market.probability_bp.is_not(None)).order_by(Market.id)).all()
+
+
+def _clear_starting_holdings(db, markets):
+    """Start each automated trader with cash and no pre-seeded YES shares."""
+    pending = db.scalars(select(Order).where(
+        Order.user_id.in_(BOTS),
+        Order.status.in_(order_service.OPEN_STATUSES))).all()
+    for order in pending:
+        order_service.cancel_order(db, order.user_id, order.id)
+
+    markets_by_id = {market.id: market for market in markets}
+    for market in db.scalars(select(Market).join(Position, Position.market_id == Market.id).where(
+            Position.user_id.in_(BOTS), Position.quantity > 0)).all():
+        markets_by_id[market.id] = market
+
+    for market in markets_by_id.values():
+        returned_shares = 0
+        issuer = order_service.position(db, "MM_ALPHA", market.id, YES)
+        for trader_id in BOTS:
+            held = order_service.position(db, trader_id, market.id, YES)
+            if held.quantity <= 0:
+                continue
+            quantity, cost = held.quantity, held.cost_basis_cents
+            held.quantity = held.reserved_qty = held.cost_basis_cents = 0
+            returned_shares += quantity
+            issuer.quantity += quantity
+            issuer.cost_basis_cents += cost
+            if cost:
+                ledger.post(db, [(ledger.TREASURY, -cost),
+                                 (ledger.user_account(trader_id), cost)],
+                            "SIMULATION_START_POSITION_RESET")
+
+        if returned_shares and market.status == "TRADING":
+            # Re-offer returned shares through the ordinary order book.
+            best_bid, _ = market_service.best_prices(db, market.id)
+            last = market.last_price_cents or market.initial_price_cents or market.share_value_cents // 2
+            tick = max(1, market.share_value_cents // 100)
+            ask = min(market.share_value_cents - 1, max(last + tick, (best_bid or 0) + 1))
+            order_service.place_order(db, "MM_ALPHA", market.id, YES, SELL, LIMIT, ask, returned_shares)
+    db.commit()
 
 
 simulation = Simulation()

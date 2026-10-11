@@ -91,6 +91,9 @@ def test_live_simulation_trades_without_nessie(priced):
     from app.services.simulation import BOTS
     admin = as_user(priced, "ADMIN")
     assert admin("POST", "/api/admin/simulation/start", json={"minutes": 1, "nessie": False}).status_code == 200
+    for trader_id in BOTS:
+        portfolio = as_user(priced, trader_id)("GET", "/api/portfolio").json()
+        assert portfolio["positions"] == []
     assert admin("POST", "/api/admin/simulation/start", json={"minutes": 1, "nessie": False}).status_code == 400
     time.sleep(6)
     status = admin("POST", "/api/admin/simulation/stop").json()
