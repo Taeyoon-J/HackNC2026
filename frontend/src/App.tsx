@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { GlassBackdrop } from "./components/layout/GlassBackdrop";
 import { Header } from "./components/layout/Header";
 import { price } from "./lib/format";
@@ -8,6 +8,7 @@ import { AdminPricing } from "./pages/admin/AdminPricing";
 import { AdminStudents } from "./pages/admin/AdminStudents";
 import { AdminSystem } from "./pages/admin/AdminSystem";
 import { LoginPage } from "./pages/LoginPage";
+import { LandingPage } from "./pages/LandingPage";
 import { StudentHome } from "./pages/student/StudentHome";
 import { StudentSettings } from "./pages/student/StudentSettings";
 import { AdminVerification } from "./pages/admin/AdminVerification";
@@ -37,6 +38,7 @@ function Home() {
 }
 
 export default function App() {
+  const { pathname } = useLocation();
   const role = useSession((s) => s.role);
   const [toasts, setToasts] = useState<{ id: number; text: string }[]>([]);
   useMarketSocket("*", (e) => {
@@ -46,6 +48,8 @@ export default function App() {
     setToasts((t) => [...t.slice(-3), { id, text }]);
     setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 4000);
   });
+
+  if (pathname === "/welcome" || (!role && pathname === "/")) return <LandingPage />;
 
   if (!role) {
     return (
